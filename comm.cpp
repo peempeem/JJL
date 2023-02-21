@@ -1,5 +1,4 @@
 #include "comm.h"
-#include "time.h"
 
 uint32_t checksum32(const uint8_t* data, unsigned len)
 {
@@ -172,14 +171,13 @@ void MessageBroker::_comm_out_pop()
     _sendq.pop();
 }
 
-MessageHub::MessageHub(std::vector<MessageBroker>* brokers, bool isMaster, float heartbeatRate, float identifyRate) : _brokers(brokers)
+MessageHub::MessageHub(std::vector<MessageBroker>* brokers, bool isMaster, float heartbeatRate) : _brokers(brokers), _isMaster(isMaster)
 {
     _broker_data = std::vector<bd_t>(brokers->size());
 
     for (bd_t& bd : _broker_data)
     {
         bd.heartbeat.setRate(heartbeatRate);
-        bd.identify.setRate(identifyRate);
     }
     
     if (isMaster)
@@ -189,6 +187,7 @@ MessageHub::MessageHub(std::vector<MessageBroker>* brokers, bool isMaster, float
     }
     else
         _active = true;
+        
 }
 
 void MessageHub::update()
@@ -197,73 +196,101 @@ void MessageHub::update()
     {
         MessageBroker& broker = (*_brokers)[i];
 
-        if (broker.messages.empty())
-            continue;
-        
-        Message& msg = broker.messages.front();
-
-        if (!_active)
+        while (!broker.messages.empty())
         {
-            if (msg.type() == MESSAGES::SET_MASTER_ADDR)
-            {
-                msg_set_master_addr_t* data = (msg_set_master_addr_t*) msg.getData();
-                _address = data->address;
-                _masterPath.clear();
-                _masterPath.reserve(data->pathSize);
-                for (unsigned i = 0; i < data->pathSize; i++)
-                    _masterPath[i] = data->path[i];
-                _active = true;
-            }
+            Message& msg = broker.messages.front();
 
-            msg.free();
-        }
-        else
-        {
-            _broker_data[i].last = sysMillis();
-            _broker_data[i].heartbeat.reset();
-
-            if (msg.type() == MESSAGES::HEARTBEAT)
+            if (!_active)
             {
-                int address = ((msg_heartbeat_t*) msg.getData())->address;
-                if (address == 0)
+                if (msg.type() == MESSAGES::SET_MASTER_ADDR)
                 {
-                    msg_confg_node_t msgData;
-                    msgData.address = _address;
-                    msgData.broker = i;
-                    send(MESSAGES::CONF_NODE, _masterPath, (uint8_t*) &msgData, sizeof(msgData));
+                    msg_set_master_addr_t* data = (msg_set_master_addr_t*) msg.getData();
+                    _address = data->address;
+                    _masterPath.clear();
+                    _masterPath.reserve(data->pathSize);
+                    for (unsigned i = 0; i < data->pathSize; i++)
+                        _masterPath[i] = data->path[i];
+                    _active = true;
                 }
-                else
-                    _broker_data[i].connectedAddress = address;
+
                 msg.free();
-            }
-            else if (msg.currentAddress() == _address)
-            {
-                if (msg.addressLength() == 1)
-                {
-                    // message for me
-                }
-                else
-                {
-                    msg.popAddress();
-                    bool found = false;
-                    for (unsigned j = 0; j < _brokers->size(); j++)
-                    {
-                        if (_broker_data[j].connectedAddress == msg.currentAddress())
-                        {
-                            (*_brokers)[j].send(msg); 
-                            found = true;
-                            break;
-                        }
-                    }
-                    if (!found)
-                        msg.free();
-                }
-                
             }
             else
-                msg.free();
+            {
+                _broker_data[i].last = sysMillis();
+
+                if (msg.type() == MESSAGES::HEARTBEAT)
+                {
+                    connection_t* data = (connection_t*) msg.getData();
+                    if (data->address == 0)
+                    {
+                        if (_isMaster)
+                        {
+                            data->address = 1;
+                            data->broker1 = data->broker0;
+                            data->broker0 = i;
+                            messages.emplace(MESSAGES::CONF_NODE, std::vector<int>(), (uint8_t*) data, sizeof(connection_t));
+                        }
+                        else
+                        {
+                            data->address = _address;
+                            data->broker1 = data->broker0;
+                            data->broker0 = i;
+                            Message conf = Message(MESSAGES::CONF_NODE, _masterPath, (uint8_t*) data, sizeof(connection_t));
+                            send(conf);
+                        }
+                    }
+                    else
+                        _broker_data[i].connectedAddress = data->address;
+                    msg.free();
+                }
+                else if (msg.currentAddress() == _address)
+                {
+                    if (msg.addressLength() == 1)
+                        messages.push(msg);
+                    else
+                    {
+                        msg.popAddress();
+                        if (!send(msg))
+                            msg.free();
+                    }
+                }
+                else
+                    msg.free();
+            }
+            broker.messages.pop();
         }
 
-        broker.messages.pop();
+        if (_broker_data[i].heartbeat.isReady())
+        {
+            connection_t data;
+            data.address = _address;
+            data.broker0 = i;
+            Message msg = Message(MESSAGES::HEARTBEAT, std::vector<int>(), (uint8_t*) &data, sizeof(connection_t));
+            sendBroker(msg, i);
+        }
     }
+}
+
+bool MessageHub::send(Message& msg)
+{
+    for (unsigned j = 0; j < _brokers->size(); j++)
+    {
+        if (_broker_data[j].connectedAddress == msg.currentAddress())
+        {
+            (*_brokers)[j].send(msg); 
+            return true;
+        }
+    }
+    return false;
+}
+
+void MessageHub::sendBroker(Message& msg, unsigned broker)
+{
+    if (broker >= _brokers->size())
+    {
+        msg.free();
+        return;
+    }
+    (*_brokers)[broker].send(msg);
 }

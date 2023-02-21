@@ -1,20 +1,19 @@
 #include "time.h"
 
-
-Rate::Rate() : _inverseRate(1000000)
+Rate::Rate() : _inverseRate(1000), _enabled(false)
 {
 
 }
 
 Rate::Rate(float rate)
 { 
-    _inverseRate = 1000000 / rate;
+    _inverseRate = 1000 / rate;
     enable();
 }
 
 void Rate::setRate(float rate)
 {
-    _inverseRate = 1000000 / rate;
+    _inverseRate = 1000 / rate;
     enable();
 }
 
@@ -22,7 +21,7 @@ bool Rate::isReady()
 {
     if (!_enabled)
         return false;
-    uint64_t time = sysMicros();
+    uint32_t time = sysMillis();
     if (time - _last > _inverseRate)
     {
         _last = time;
@@ -33,16 +32,14 @@ bool Rate::isReady()
 
 void Rate::reset()
 {
-    _last = sysMicros();
+    _last = sysMillis();
 }
 
 void Rate::enable()
 {
     if (_enabled)
-    {
         reset();
-        _enabled = true;
-    }
+    _enabled = true;
 }
 
 void Rate::disable()
@@ -54,7 +51,7 @@ float Rate::getStage(bool noChange)
 {
     if (!_enabled)
         return 0;
-    uint64_t time = sysMicros();
+    uint32_t time = sysMillis();
     float stage = (time - _last) / (float) _inverseRate;
     if (stage > 1) 
     {

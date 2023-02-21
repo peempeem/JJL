@@ -14,22 +14,12 @@ enum MESSAGES
     SET_LIGHTS
 };
 
-typedef struct MSG_CONF_NODE
+typedef struct CONNECTION
 {
     uint8_t address;
-    uint8_t broker;
-} msg_confg_node_t;
- 
-typedef struct MSG_NODE_DC
-{
-    uint8_t address;
-    uint8_t broker;
-} msg_node_dc_t;
-
-typedef struct MSG_HEARTBEAT
-{
-    uint8_t address;
-} msg_heartbeat_t;
+    uint8_t broker0;
+    uint8_t broker1;
+} connection_t;
 
 typedef struct MSG_SET_MASTER_ADDR
 {

@@ -6,6 +6,7 @@
 #include <cstring>
 #include "buffer.hpp"
 #include "message.h"
+#include "time.h"
 
 uint32_t checksum32(const uint8_t* data, unsigned len);
 
@@ -85,12 +86,12 @@ class MessageHub
     public:
         std::queue<Message> messages;
 
-        MessageHub(std::vector<MessageBroker>* brokers, bool isMaster=false, float heartbeatRate=2.0f, float identifyRate=0.5f);
+        MessageHub(std::vector<MessageBroker>* brokers, bool isMaster=false, float heartbeatRate=2.0f);
 
         void update();
 
-        void send(const Message& msg);
-        void send(uint8_t type, const std::vector<int>& address, const uint8_t* data, uint16_t datalen);
+        bool send(Message& msg);
+        void sendBroker(Message& msg, unsigned broker);
 
     private:
         typedef struct BROKER_DATA
@@ -98,7 +99,6 @@ class MessageHub
             int connectedAddress = -1;
             unsigned last = 0;
             Rate heartbeat;
-            Rate identify;
         } bd_t;
 
         std::vector<MessageBroker>* _brokers;
@@ -106,5 +106,6 @@ class MessageHub
         std::vector<bd_t> _broker_data;
 
         bool _active = false;
+        bool _isMaster;
         int _address;        
 };
