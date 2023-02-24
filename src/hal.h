@@ -1,6 +1,6 @@
 #pragma once
 
-#ifndef ARDUINO_H
+#ifndef ESP32
 #include <stm32f0xx_hal.h>
 #include <stdint.h>
 

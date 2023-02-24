@@ -105,7 +105,6 @@ class MessageHub
         std::vector<int> _masterPath;
         std::vector<bd_t> _broker_data;
 
-        bool _active = false;
         bool _isMaster;
         int _address;        
 };

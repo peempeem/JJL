@@ -1,6 +1,8 @@
 #include "stm32EL.h"
 #include "comm.h"
 
+#ifndef ESP32
+
 extern UART_HandleTypeDef huart1;
 
 #define NUM_BROKERS 1
@@ -49,7 +51,7 @@ void HAL_UART_TxCpltCallback(UART_HandleTypeDef* huart)
     }
 }
 
-MessageHub hub(&brokers);
+MessageHub hub(&brokers, true);
 
 void stm32EventLoop()
 {
@@ -60,3 +62,5 @@ void stm32EventLoop()
     }
     
 }
+
+#endif

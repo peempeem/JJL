@@ -86,10 +86,8 @@ int Message::type()
 
 int Message::currentAddress()
 {
-    if (!isValid())
+    if (!isValid() || !_msg->header.data.addrlen)
         return -1;
-    else if (_msg->header.data.addrlen == 0)
-        return 0;
     return _msg->data[_dataSize - 1];
 }
 
@@ -102,7 +100,7 @@ int Message::addressLength()
 
 void Message::popAddress()
 {
-    if (!isValid() || _msg->header.data.addrlen == 0)
+    if (!isValid() || !_msg->header.data.addrlen)
         return;
     
     _write--;
@@ -181,12 +179,10 @@ MessageHub::MessageHub(std::vector<MessageBroker>* brokers, bool isMaster, float
     }
     
     if (isMaster)
-    {
-        _address = 1;
-        _active = false;
-    }
+        _address = 0;
     else
-        _active = true;
+        _address = -1;
+        
         
 }
 
@@ -200,7 +196,7 @@ void MessageHub::update()
         {
             Message& msg = broker.messages.front();
 
-            if (!_active)
+            if (_address != -1)
             {
                 if (msg.type() == MESSAGES::SET_MASTER_ADDR)
                 {
@@ -210,7 +206,6 @@ void MessageHub::update()
                     _masterPath.reserve(data->pathSize);
                     for (unsigned i = 0; i < data->pathSize; i++)
                         _masterPath[i] = data->path[i];
-                    _active = true;
                 }
 
                 msg.free();
@@ -221,24 +216,15 @@ void MessageHub::update()
 
                 if (msg.type() == MESSAGES::HEARTBEAT)
                 {
-                    connection_t* data = (connection_t*) msg.getData();
-                    if (data->address == 0)
+                    heartbeat_t* data = (heartbeat_t*) msg.getData();
+                    if (!data->setup)
                     {
-                        if (_isMaster)
-                        {
-                            data->address = 1;
-                            data->broker1 = data->broker0;
-                            data->broker0 = i;
-                            messages.emplace(MESSAGES::CONF_NODE, std::vector<int>(), (uint8_t*) data, sizeof(connection_t));
-                        }
-                        else
-                        {
-                            data->address = _address;
-                            data->broker1 = data->broker0;
-                            data->broker0 = i;
-                            Message conf = Message(MESSAGES::CONF_NODE, _masterPath, (uint8_t*) data, sizeof(connection_t));
-                            send(conf);
-                        }
+                        connection_t conn;
+                        conn.address = _address;
+                        conn.broker0 = i;
+                        conn.broker1 = data->broker0;
+                        Message conf = Message(MESSAGES::CONF_NODE, _masterPath, (uint8_t*) conn, sizeof(connection_t));
+                        send(conf);
                     }
                     else
                         _broker_data[i].connectedAddress = data->address;
@@ -263,9 +249,10 @@ void MessageHub::update()
 
         if (_broker_data[i].heartbeat.isReady())
         {
-            connection_t data;
+            heartbeat_t data;
+            data.setup = _address != -1;
             data.address = _address;
-            data.broker0 = i;
+            data.broker = i;
             Message msg = Message(MESSAGES::HEARTBEAT, std::vector<int>(), (uint8_t*) &data, sizeof(connection_t));
             sendBroker(msg, i);
         }
@@ -274,6 +261,11 @@ void MessageHub::update()
 
 bool MessageHub::send(Message& msg)
 {
+    if (msg.currentAddress() == -1)
+    {
+        messages.push(msg);
+        return true;
+    }
     for (unsigned j = 0; j < _brokers->size(); j++)
     {
         if (_broker_data[j].connectedAddress == msg.currentAddress())

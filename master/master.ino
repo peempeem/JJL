@@ -19,7 +19,31 @@ void loop()
 {
     while (port.available())
         brokers[0]._comm_in(port.read());
+    
     hub.update();
+
+    while (hub.messages.size())
+    {
+        Message& msg = hub.messages.front();
+
+        switch (msg.type())
+        {
+            case MESSAGES::CONF_NODE:
+            {
+                
+            }
+
+            case MESSAGES::NODE_DC:
+            {
+
+            }
+        }
+
+        msg.free();
+        hub.messages.pop();
+    }
+
+
     while (brokers[0]._comm_out_peek())
     {
         Message* msg = brokers[0]._comm_out_peek();
