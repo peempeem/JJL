@@ -34,7 +34,7 @@ class Message
 {
     public:
         Message();
-        Message(uint8_t type, const std::vector<int>& address, const uint8_t* data, uint16_t datalen);
+        Message(uint8_t type, const std::vector<unsigned>& address, const uint8_t* data, uint16_t datalen);
 
         void free();
 
@@ -42,12 +42,13 @@ class Message
         bool isValid();
 
         int type();
+        void copy(Message& msg);
 
         int currentAddress();
         int addressLength();
         void popAddress();
 
-        msg_t* get();
+        msg_t* getMsg();
         uint8_t* getData();
         unsigned size();
         unsigned dataSize();
@@ -86,7 +87,7 @@ class MessageHub
     public:
         std::queue<Message> messages;
 
-        MessageHub(std::vector<MessageBroker>* brokers, bool isMaster=false, float heartbeatRate=2.0f);
+        MessageHub(std::vector<MessageBroker>* brokers, bool isMaster=false, float heartbeatRate=4.0f);
 
         void update();
 
@@ -102,7 +103,7 @@ class MessageHub
         } bd_t;
 
         std::vector<MessageBroker>* _brokers;
-        std::vector<int> _masterPath;
+        std::vector<unsigned> _masterPath;
         std::vector<bd_t> _broker_data;
 
         bool _isMaster;
