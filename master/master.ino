@@ -2,25 +2,25 @@
 #include "comm.h"
 #include "graph.h"
 #include "time.h"
+#include "buffer.h"
 
-#define RX  26
-#define TX  27
+#define RX      26
+#define TX      27
 #define BAUD    115200
 
 HardwareSerial port(1);
-HardwareSerial p(2);
-HardwareSerial debug(2);
-std::vector<MessageBroker> brokers = std::vector<MessageBroker>(2);
+std::vector<MessageBroker> brokers = std::vector<MessageBroker>(1);
 MessageHub hub(&brokers, true);
 Graph graph;
 Rate update(30);
-Rate blink(1);
+Rate red(1);
+Rate green(1.5f);
+Rate blue(0.5f);
 
 void setup()
 {
     Serial.begin(BAUD);
     port.begin(BAUD, SERIAL_8N1, RX, TX);
-    p.begin(BAUD, SERIAL_8N1, 14, 12);
     graph.newNode();
 }
 
@@ -28,11 +28,6 @@ void loop()
 {
     while (port.available())
         brokers[0]._comm_in(port.read());
-    
-    while (p.available())
-    {
-        Serial.write(p.read());
-    }
     
     hub.update();
 
@@ -72,16 +67,13 @@ void loop()
                 path.erase(--path.end());
                 rpath.erase(rpath.begin());
                 
-                unsigned msmaSize = sizeof(msg_set_master_addr_t) + rpath.size();
-                uint8_t* buf = new uint8_t[msmaSize];
-                msg_set_master_addr_t* msma = (msg_set_master_addr_t*) buf;
-                msma->broker = conn->broker0;
-                msma->address = conn->address1;
-                msma->pathSize = rpath.size();
+                DBuffer<msg_set_master_addr_t> buf(sizeof(msg_set_master_addr_t) + rpath.size());
+                buf.data()->broker = conn->broker0;
+                buf.data()->address = conn->address1;
+                buf.data()->pathSize = rpath.size();
                 for (unsigned i = 0; i < rpath.size(); i++)
-                    msma->path[i] = rpath[i];
-                Message smsg(MESSAGES::SET_MASTER_ADDR, path, buf, msmaSize);
-                delete[] buf;
+                    buf.data()->path[i] = rpath[i];
+                Message smsg(MESSAGES::SET_MASTER_ADDR, path, buf.raw(), buf.size());
                 if (conn->address0)
                     hub.send(smsg);
                 else
@@ -101,17 +93,13 @@ void loop()
 
     if (update.isReady())
     {
-        uint8_t* buf = new uint8_t[sizeof(msg_set_lights_t) + sizeof(rgb8_t) * 1];
-        msg_set_lights_t* msl = (msg_set_lights_t*) buf;
-        msl->size = 1;
-        uint8_t temp = (uint8_t) (blink.getStage() * 255) % 256;
-        msl->data[0] = RGB8(temp, temp, temp);
-        std::vector<unsigned> path;
-        path.push_back(1);
-        Message smsg(MESSAGES::SET_LIGHTS, path, buf, sizeof(msg_set_lights_t) + sizeof(rgb8_t) * 1);
+        SBuffer<msg_set_lights_t, sizeof(msg_set_lights_t) + sizeof(msg_set_lights_t::rgb_t) * 1> buf;
+        buf.data()->size = 1;
+        buf.data()->data[0].r = (uint8_t) (red.getStageCos() * 255) % 256;
+        buf.data()->data[1].g = (uint8_t) (green.getStageCos() * 255) % 256;
+        buf.data()->data[2].b = (uint8_t) (blue.getStageCos() * 255) % 256;
+        Message smsg(MESSAGES::SET_LIGHTS, graph.path(0, 1), buf.raw(), buf.size());
         hub.send(smsg);
-        delete[] buf;
-        msl = (msg_set_lights_t*) smsg.getData();
     }
 
     while (brokers[0]._comm_out_peek())

@@ -177,7 +177,7 @@ void MessageBroker::_comm_out_pop()
     _sendq.pop();
 }
 
-MessageHub::MessageHub(std::vector<MessageBroker>* brokers, bool isMaster, float heartbeatRate) : _brokers(brokers), _isMaster(isMaster)
+MessageHub::MessageHub(std::vector<MessageBroker>* brokers, bool isMaster, float heartbeatRate, unsigned timeout) : _brokers(brokers), _isMaster(isMaster), _timeout(timeout)
 {
     _broker_data = std::vector<bd_t>(brokers->size());
 
@@ -190,8 +190,6 @@ MessageHub::MessageHub(std::vector<MessageBroker>* brokers, bool isMaster, float
         _address = 0;
     else
         _address = -1;
-        
-        
 }
 
 void MessageHub::update()
@@ -203,6 +201,8 @@ void MessageHub::update()
         while (!broker.messages.empty())
         {
             Message& msg = broker.messages.front();
+
+            _broker_data[i].last = sysMillis();
 
             if (_address == -1)
             {
@@ -218,8 +218,6 @@ void MessageHub::update()
             }
             else
             {
-                _broker_data[i].last = sysMillis();
-
                 if (msg.type() == MESSAGES::HEARTBEAT)
                 {
                     msg_heartbeat_t* data = (msg_heartbeat_t*) msg.getData();
@@ -235,13 +233,44 @@ void MessageHub::update()
                         send(conf);
                     }
                     else
+                    {
                         _broker_data[i].connectedAddress = data->address;
+                        _broker_data[i].broker = data->broker;
+                    }
                     msg.free();
                 }
                 else if (msg.currentAddress() == _address)
                 {
                     if (msg.addressLength() == 1)
-                        messages.push(msg);
+                    {
+                        switch (msg.type())
+                        {
+                            case MESSAGES::SET_MASTER_ADDR:
+                            {
+                                sendBroker(msg, ((msg_set_master_addr_t*) msg.getData())->broker);
+                                break;
+                            }
+                            
+                            case MESSAGES::PING:
+                            {
+                                msg_ping_t* ping = (msg_ping_t*) msg.getData();
+                                std::vector<unsigned> ret = std::vector<unsigned>(ping->size);
+                                for (unsigned i = 0; i < ping->size; i++)
+                                    ret[i] = ping->returnAddress[i];
+                                msg_reping_t reping;
+                                reping.address = _address;
+                                reping.id = ping->id;
+                                reping.alive = sysMillis();
+                                Message smsg = Message(MESSAGES::REPING, ret, (uint8_t*) &reping, sizeof(reping));
+                                send(smsg);
+                                msg.free();
+                                break;
+                            }
+
+                            default:
+                                messages.push(msg);
+                        }   
+                    }
                     else
                     {
                         msg.popAddress();
@@ -263,6 +292,19 @@ void MessageHub::update()
             data.broker = i;
             Message msg = Message(MESSAGES::HEARTBEAT, std::vector<unsigned>(), (uint8_t*) &data, sizeof(msg_heartbeat_t));
             sendBroker(msg, i);
+        }
+
+        if (_address != -1 && _broker_data[i].connectedAddress != -1 && sysMillis() - _broker_data[i].last >= _timeout)
+        {
+            msg_connection_t conn;
+            conn.address0 = _address;
+            conn.address1 = _broker_data[i].connectedAddress;
+            conn.broker0 = i;
+            conn.broker1 = _broker_data[i].broker;
+            conn.isSetup = true;
+            _broker_data[i].connectedAddress = -1;
+            Message smsg = Message(MESSAGES::NODE_DC, _masterPath, (uint8_t*) &conn, sizeof(msg_connection_t));
+            send(smsg);
         }
     }
 }

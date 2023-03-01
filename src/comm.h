@@ -87,7 +87,7 @@ class MessageHub
     public:
         std::queue<Message> messages;
 
-        MessageHub(std::vector<MessageBroker>* brokers, bool isMaster=false, float heartbeatRate=4.0f);
+        MessageHub(std::vector<MessageBroker>* brokers, bool isMaster=false, float heartbeatRate=4.0f, unsigned timeout=1000);
 
         void update();
 
@@ -98,6 +98,7 @@ class MessageHub
         typedef struct BROKER_DATA
         {
             int connectedAddress = -1;
+            int broker = -1;
             unsigned last = 0;
             Rate heartbeat;
         } bd_t;
@@ -107,5 +108,6 @@ class MessageHub
         std::vector<bd_t> _broker_data;
 
         bool _isMaster;
-        int _address;        
+        int _address;
+        unsigned _timeout;   
 };

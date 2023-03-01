@@ -1,6 +1,6 @@
 #include <stdint.h>
 
-template<unsigned LEN>
+template <unsigned LEN>
 class Buffer
 {
     public:
@@ -43,4 +43,102 @@ class Buffer
         unsigned    _size = 0;
         unsigned    _idx = 0;
         uint8_t     _data[LEN];
+};
+
+template <class T, unsigned LEN>
+class SBuffer
+{
+    public:
+        SBuffer<T, LEN>()
+        {
+
+        }
+
+        inline T* data()
+        {
+            return (T*) &_data;
+        }
+
+        inline uint8_t* raw()
+        {
+            return _data;
+        }
+
+        inline unsigned size()
+        {
+            return LEN;
+        }
+
+    private:
+        uint8_t _data[LEN];
+};
+
+template <class T>
+class DBuffer
+{
+    public:
+        DBuffer<T>(unsigned length) : _size(length)
+        {
+            _data = new uint8_t[length];
+        }
+
+        ~DBuffer<T>()
+        {
+            delete[] _data;
+        }
+
+        inline T* data()
+        {
+            return (T*) &_data;
+        }
+
+        inline uint8_t* raw()
+        {
+            return _data;
+        }
+
+        inline unsigned size()
+        {
+            return _size;
+        }
+
+    private:
+        uint8_t* _data;
+        unsigned _size;
+};
+
+template <unsigned LEN>
+class RingBuffer
+{
+    public:
+        RingBuffer() : _put(0), _get(0)
+        {
+
+        }
+
+        void put(uint8_t byte)
+        {
+            _data[_put] = byte;
+            if (_put == _get)
+                _get = (_get + 1) % LEN;
+            _put = (_put + 1) % LEN;
+        }
+
+        inline bool available()
+        {
+            return _put != _get;
+        }
+
+        uint8_t get()
+        {
+            uint8_t byte = _data[_get];
+            if (_put != _get)
+                _get = (_get + 1) % LEN;
+            return byte;
+        }
+    
+    private:
+        uint8_t _data[LEN];
+        int _put;
+        int _get;
 };

@@ -1,13 +1,15 @@
 #include "stm32EL.h"
 #include "comm.h"
 #include "time.h"
+#include "buffer.h"
 
 #ifndef ESP32
 
 extern UART_HandleTypeDef huart2;
 
-#define NUM_BROKERS 1
-#define BUFSIZE     32
+#define NUM_BROKERS     1
+#define RX_BUFSIZE_IT   32
+#define RX_BUFSIZE      512
 
 std::vector<MessageBroker> brokers = std::vector<MessageBroker>(NUM_BROKERS);
 MessageHub hub(&brokers);
@@ -15,7 +17,8 @@ MessageHub hub(&brokers);
 typedef struct UART_DATA
 {
     volatile bool sending = false;
-    uint8_t rxbuf[BUFSIZE];
+    uint8_t rxbuf[RX_BUFSIZE_IT];
+    RingBuffer<256> data;
 } uartd_t;
 
 uartd_t broker_data[NUM_BROKERS];
@@ -68,22 +71,24 @@ void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef* huart, uint16_t size)
     if (broker != -1)
     {
         for (unsigned i = 0; i < (unsigned) size; i++)
-            brokers[broker]._comm_in(broker_data[broker].rxbuf[i]);
-        HAL_UARTEx_ReceiveToIdle_IT(huart, broker_data[broker].rxbuf, BUFSIZE);
-        char buf[] = "ayo!!\n\r";
-        Message msg = Message(0, std::vector<unsigned>(), (uint8_t*) buf, sizeof(buf));
-        hub.sendBroker(msg, 0);
+            broker_data[broker].data.put(broker_data[broker].rxbuf[i]);
+        HAL_UARTEx_ReceiveToIdle_IT(huart, broker_data[broker].rxbuf, RX_BUFSIZE_IT);
     }
 }
-
 
 void stm32EventLoop()
 {
     for (unsigned i = 0; i < NUM_BROKERS; i++)
-        HAL_UARTEx_ReceiveToIdle_IT(broker2UART(i), broker_data[0].rxbuf, BUFSIZE);
+        HAL_UARTEx_ReceiveToIdle_IT(broker2UART(i), broker_data[0].rxbuf, RX_BUFSIZE_IT);
 
     while (true)
     {
+        for (unsigned i = 0; i < NUM_BROKERS; i++)
+        {
+            while (broker_data[i].data.available())
+                brokers[i]._comm_in(broker_data[i].rxbuf[i]);
+        }   
+        
         hub.update();
 
         while (hub.messages.size())
@@ -92,22 +97,23 @@ void stm32EventLoop()
 
             switch (msg.type())
             {
-                case MESSAGES::SET_MASTER_ADDR:
+                case MESSAGES::SET_LIGHTS:
                 {
-                    msg_set_master_addr_t* msma = (msg_set_master_addr_t*) msg.getData();
-                    hub.sendBroker(msg, msma->broker);
+                    msg_set_lights_t* msl = (msg_set_lights_t*) msg.getData();
+                    for (unsigned i = 0; i < msl->size; i++)
+                    {
+                        // set lights
+                    }
                     break;
                 }
-
-                default:
-                    msg.free();
             }
 
+            msg.free();
             hub.messages.pop();
         }
         
         for (unsigned i = 0; i < NUM_BROKERS; i++)
-            sendNext(0);
+            sendNext(i);
     }
 }
 

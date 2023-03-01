@@ -1,4 +1,6 @@
 #include "time.h"
+#define _USE_MATH_DEFINES
+#include <math.h>
 
 Rate::Rate() : _inverseRate(1000), _enabled(false)
 {
@@ -60,4 +62,10 @@ float Rate::getStage(bool noChange)
             _last = time;
     }
     return stage;
+}
+
+float Rate::getStageCos(bool noChange)
+{
+    float stage = getStage(noChange);
+    return 0.5f - cos(stage * 2 * M_PI) / 2.0f;
 }

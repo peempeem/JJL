@@ -16,6 +16,7 @@ class Rate {
         void    enable();
         void    disable();
         float   getStage(bool noChange=false);
+        float   getStageCos(bool noChange=false);
 
     private:
         uint32_t    _inverseRate = 0;
