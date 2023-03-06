@@ -11,6 +11,8 @@ class Rate {
         Rate(float rate);
 
         void    setRate(float rate);
+        void    ring();
+        void    set();
         bool    isReady();
         void    reset();
         void    enable();

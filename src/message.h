@@ -39,19 +39,9 @@ typedef struct MSG_SET_MASTER_ADDR
 
 typedef struct MSG_SET_LIGHTS
 {
-    typedef struct RGB
+    typedef struct __attribute__((packed)) RGB
     {
         uint8_t r, g, b;
-
-        RGB()
-        {
-
-        }
-
-        RGB(uint8_t r, uint8_t g, uint8_t b) : r(r), g(g), b(b)
-        {
-
-        }
     } rgb_t;
 
     uint8_t size;
@@ -61,8 +51,8 @@ typedef struct MSG_SET_LIGHTS
 typedef struct MSG_PING
 {
     uint8_t id;
-    uint8_t size;
-    uint8_t returnAddress[];
+    uint8_t returnPathSize;
+    uint8_t returnPath[];
 } msg_ping_t;
 
 typedef struct MSG_REPING

@@ -1,40 +1,19 @@
 #pragma once
-
 #include <stdint.h>
 #include <vector>
 #include <queue>
 #include <cstring>
-#include "buffer.hpp"
+#include "buffer.h"
 #include "message.h"
 #include "time.h"
 
-uint32_t checksum32(const uint8_t* data, unsigned len);
-
-typedef struct MSG
-{
-    typedef struct HEADER
-    {
-        typedef struct DATA
-        {
-            uint8_t     type;
-            uint8_t     addrlen;
-            uint16_t    datalen;
-            uint32_t    datacs;
-        } msghd_t;
-
-        msghd_t     data;
-        uint32_t    cs;
-    } msgh_t;
-
-    msgh_t      header;
-    uint8_t     data[];
-} msg_t;
+unsigned hash32(const uint8_t* data, unsigned len);
 
 class Message
 {
     public:
         Message();
-        Message(uint8_t type, const std::vector<unsigned>& address, const uint8_t* data, uint16_t datalen);
+        Message(uint16_t type, const std::vector<unsigned>& address, const uint8_t* data, unsigned len);
 
         void free();
 
@@ -42,26 +21,44 @@ class Message
         bool isValid();
 
         int type();
-        void copy(Message& msg);
-
         int currentAddress();
         int addressLength();
         void popAddress();
 
-        msg_t* getMsg();
-        uint8_t* getData();
+        uint8_t* getMsg();
         unsigned size();
+
+        uint8_t* getData();
         unsigned dataSize();
 
     private:
-        msg_t* _msg;
-        bool _head = false;
-        Buffer<sizeof(MSG::HEADER)> _headBuf;   
+        typedef struct MSG
+        {
+            typedef struct HEADER
+            {
+                typedef struct DATA
+                {
+                    uint16_t type = 0;
+                    uint16_t addrlen = 0;
+                    unsigned len = 0;
+                    unsigned hash = 0;
+                } msghd_t;
 
-        unsigned _write = 0;
-        unsigned _dataSize = 0;
-        unsigned _msgSize = 0;
-        bool     _valid;
+                msghd_t     data;
+                unsigned    hash = 0;
+            } msgh_t;
+
+            msgh_t      header;
+            uint8_t     data[];
+        } msg_t;
+
+        msg_t*      _msg;
+        bool        _head = false;
+        unsigned    _write;
+        unsigned    _dataSize;
+        unsigned    _msgSize;
+        bool        _valid;
+        CFIFO<MSG::HEADER> _fifo = CFIFO<MSG::HEADER>();  
 };
 
 class MessageBroker
@@ -78,8 +75,8 @@ class MessageBroker
         void _comm_out_pop();
     
     private:
-        std::queue<Message> _sendq;
-        Message _recvmsg;
+        std::queue<Message> _sendq = std::queue<Message>();
+        Message _recvmsg = Message();
 };
 
 class MessageHub
@@ -87,7 +84,7 @@ class MessageHub
     public:
         std::queue<Message> messages;
 
-        MessageHub(std::vector<MessageBroker>* brokers, bool isMaster=false, float heartbeatRate=4.0f, unsigned timeout=1000);
+        MessageHub(std::vector<MessageBroker>* brokers, bool isMaster=false, float heartbeatRate=4, unsigned timeout=3000);
 
         void update();
 
@@ -109,5 +106,6 @@ class MessageHub
 
         bool _isMaster;
         int _address;
-        unsigned _timeout;   
+        unsigned _timeout;
+        unsigned _lastMaster;
 };

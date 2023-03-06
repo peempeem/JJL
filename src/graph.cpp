@@ -10,6 +10,22 @@ Graph::Graph()
 
 }
 
+Graph::Itterator Graph::begin()
+{
+    unsigned i = 0;
+    for (; i < _adjList.size(); i++)
+    {
+        if (_adjList[i].used)
+            break;
+    }
+    return Itterator(i, &_adjList);
+}
+
+Graph::Itterator Graph::end()
+{
+    return Itterator(_adjList.size(), &_adjList);
+}
+
 unsigned Graph::newNode()
 {
     unsigned address;
@@ -91,14 +107,14 @@ void Graph::disconnect(unsigned n1, unsigned n2)
         if (nn1.connections[i] != -1)
             n1c++;
         if (nn2.connections[i] == n1)
-            nn1.connections[i] = -1;
+            nn2.connections[i] = -1;
         if (nn2.connections[i] != -1)
             n2c++;
     }
     
-    if (n1 != 0 && n1c == 0)
+    if (n1 != 0 && n1c == 0 && n1 != 0)
         nn1.placed = false;
-    if (n2 != 0 && n2c == 0)
+    if (n2 != 0 && n2c == 0 && n2 != 0)
         nn2.placed = false;
 }
 
@@ -114,6 +130,12 @@ int Graph::getNode(unsigned node, unsigned vert)
 unsigned Graph::numNodes()
 {
     return _numNodes;
+}
+
+float2 Graph::position(unsigned node)
+{
+    if (_valid(node))
+        return { _adjList[node].x, _adjList[node].y };
 }
 
 typedef struct ASTAR_DATA
@@ -147,7 +169,6 @@ std::vector<unsigned> Graph::path(unsigned start, unsigned end)
     if (start == end)
     {
         p.push_back(start);
-        p.push_back(end);
         return p;
     }
     

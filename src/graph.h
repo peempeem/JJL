@@ -6,20 +6,14 @@
 
 #define MAX_NODE_VERTICES 3
 
+typedef struct FLOAT2
+{
+    float x, y;
+} float2;
+
 class Graph
 {
     public:
-        Graph();
-
-        unsigned newNode();
-        void removeNode(unsigned node);
-        void connect(unsigned n1, unsigned n2, unsigned v1, unsigned v2, unsigned w1=1, unsigned w2=1);
-        void disconnect(unsigned n1, unsigned n2);
-        int getNode(unsigned node, unsigned vert);
-        unsigned numNodes();
-        std::vector<unsigned> path(unsigned start, unsigned end);
-    
-    private:
         typedef struct NODE
         {
             bool used, placed;
@@ -40,6 +34,67 @@ class Graph
             }
         } node_t;
 
+        class Itterator
+        {
+            public:
+                Itterator(unsigned idx, std::vector<node_t>* table) : _idx(idx), _table(table)
+                {
+
+                }
+
+                unsigned operator*()
+                {
+                    return _idx;
+                }
+
+                Itterator& operator++()
+                {
+                    while (_idx < _table->size())
+                    {
+                        _idx++;
+                        if ((*_table)[_idx].used)
+                            break;
+                    }
+                    return *this;
+                }
+
+                Itterator operator++(int)
+                {
+                    unsigned idx = _idx;
+                    while (idx < _table->size())
+                    {
+                        idx++;
+                        if ((*_table)[idx].used)
+                            break;
+                    }
+                    return Itterator(idx, _table);
+                }
+
+                bool operator!=(const Itterator& other)
+                {
+                    return _idx != other._idx;
+                }
+            
+            private:
+                unsigned _idx;
+                std::vector<node_t>* _table;
+        };
+
+        Graph();
+
+        Itterator begin();
+        Itterator end();
+
+        unsigned newNode();
+        void removeNode(unsigned node);
+        void connect(unsigned n1, unsigned n2, unsigned v1, unsigned v2, unsigned w1=1, unsigned w2=1);
+        void disconnect(unsigned n1, unsigned n2);
+        int getNode(unsigned node, unsigned vert);
+        unsigned numNodes();
+        float2 position(unsigned node);
+        std::vector<unsigned> path(unsigned start, unsigned end);
+    
+    private:
         std::vector<node_t> _adjList;
         std::queue<unsigned> _reuse;
         unsigned _numNodes;

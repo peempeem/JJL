@@ -8,7 +8,7 @@
 extern UART_HandleTypeDef huart2;
 
 #define NUM_BROKERS     1
-#define RX_BUFSIZE_IT   32
+#define RX_BUFSIZE_IT   64
 #define RX_BUFSIZE      512
 
 std::vector<MessageBroker> brokers = std::vector<MessageBroker>(NUM_BROKERS);
@@ -18,7 +18,7 @@ typedef struct UART_DATA
 {
     volatile bool sending = false;
     uint8_t rxbuf[RX_BUFSIZE_IT];
-    RingBuffer<256> data;
+    RingBuffer<RX_BUFSIZE> data;
 } uartd_t;
 
 uartd_t broker_data[NUM_BROKERS];
@@ -47,11 +47,13 @@ void sendNext(unsigned broker)
     {
         Message* msg = brokers[broker]._comm_out_peek();
         if (msg)
-        {
-            HAL_UART_Transmit_IT(broker2UART(broker), (uint8_t*) msg->getMsg(), msg->size());
-            broker_data[broker].sending = true;
-        }
+            broker_data[broker].sending = HAL_UART_Transmit_IT(broker2UART(broker), (uint8_t*) msg->getMsg(), msg->size()) == HAL_OK;
     }
+}
+
+void recvNext(unsigned broker)
+{
+    HAL_UARTEx_ReceiveToIdle_IT(broker2UART(broker), broker_data[broker].rxbuf, RX_BUFSIZE_IT);
 }
 
 void HAL_UART_TxCpltCallback(UART_HandleTypeDef* huart)
@@ -72,23 +74,14 @@ void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef* huart, uint16_t size)
     {
         for (unsigned i = 0; i < (unsigned) size; i++)
             broker_data[broker].data.put(broker_data[broker].rxbuf[i]);
-        HAL_UARTEx_ReceiveToIdle_IT(huart, broker_data[broker].rxbuf, RX_BUFSIZE_IT);
+        recvNext(broker);
     }
 }
 
 void stm32EventLoop()
 {
-    for (unsigned i = 0; i < NUM_BROKERS; i++)
-        HAL_UARTEx_ReceiveToIdle_IT(broker2UART(i), broker_data[0].rxbuf, RX_BUFSIZE_IT);
-
     while (true)
     {
-        for (unsigned i = 0; i < NUM_BROKERS; i++)
-        {
-            while (broker_data[i].data.available())
-                brokers[i]._comm_in(broker_data[i].rxbuf[i]);
-        }   
-        
         hub.update();
 
         while (hub.messages.size())
@@ -103,6 +96,8 @@ void stm32EventLoop()
                     for (unsigned i = 0; i < msl->size; i++)
                     {
                         // set lights
+                        
+
                     }
                     break;
                 }
@@ -113,7 +108,12 @@ void stm32EventLoop()
         }
         
         for (unsigned i = 0; i < NUM_BROKERS; i++)
+        {
             sendNext(i);
+            recvNext(i);
+            while (broker_data[i].data.available())
+                brokers[i]._comm_in(broker_data[i].data.get());
+        }
     }
 }
 

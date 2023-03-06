@@ -8,7 +8,7 @@ Rate::Rate() : _inverseRate(1000), _enabled(false)
 }
 
 Rate::Rate(float rate)
-{ 
+{
     _inverseRate = 1000 / rate;
     enable();
 }
@@ -17,6 +17,16 @@ void Rate::setRate(float rate)
 {
     _inverseRate = 1000 / rate;
     enable();
+}
+
+void Rate::ring()
+{
+    _last = 0;
+}
+
+void Rate::set()
+{
+    _last = sysMillis();
 }
 
 bool Rate::isReady()

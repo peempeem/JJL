@@ -3,6 +3,7 @@
 #include <vector>
 #include <list>
 
+
 template <class V>
 class Hash
 {
@@ -53,7 +54,7 @@ class Hash
                     while (idx < _table->size())
                     {
                         idx++;
-                        if ((*_table)[_idx])
+                        if ((*_table)[idx])
                             break;
                     }
                     return Itterator(idx, _table);
@@ -74,7 +75,17 @@ class Hash
             _table = new std::vector<node_t*>(8);
         }
 
-        void insert(unsigned key, const V& value)
+        ~Hash()
+        {
+            for (unsigned i = 0; i < (*_table).size(); i++)
+            {
+                if ((*_table)[i])
+                    delete (*_table)[i];
+            }
+            delete _table;
+        }
+
+        V& insert(unsigned key, const V& value)
         {
             if (_size > _table->size() * 0.7f)
             {
@@ -107,7 +118,7 @@ class Hash
                 {
                     (*_table)[idx] = new NODE(key, value);
                     _size++;
-                    break;
+                    return (*_table)[idx]->value;
                     
                 }
                 idx = (idx + 1) % _table->size();

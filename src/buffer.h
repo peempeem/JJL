@@ -1,62 +1,36 @@
+#pragma once
 #include <stdint.h>
 
-template <unsigned LEN>
-class Buffer
+template <class T>
+class CFIFO : public T
 {
     public:
-        Buffer()
+        CFIFO()
         {
             
         }
         
         void insert(uint8_t byte)
         {
-            _data[_idx++] = byte;
-            if (_idx >= LEN)
-                _idx = 0;
-            if (++_size > LEN)
-                _size = LEN;
+            uint8_t* data = (uint8_t*) this;
+            for (unsigned i = 0; i < sizeof(T) - 1; i++)
+                data[i] = data[i + 1];
+            data[sizeof(T) - 1] = byte;
         }
-
-        bool memcmp(const uint8_t* arr)
-        {
-            for (unsigned i = 0; i < LEN; i++)
-            {
-                if (arr[i] != _data[(i + _idx) % LEN])
-                    return false;
-            }
-            return true;
-        }
-
-        void copy(uint8_t* dst)
-        {
-            for (unsigned i = 0; i < LEN; i++)
-                dst[i] = _data[(i + _idx) % LEN];
-        }
-
-        bool isFull()
-        {
-            return _size == LEN;
-        }
-
-    private:
-        unsigned    _size = 0;
-        unsigned    _idx = 0;
-        uint8_t     _data[LEN];
 };
 
 template <class T, unsigned LEN>
 class SBuffer
 {
     public:
-        SBuffer<T, LEN>()
+        SBuffer()
         {
 
         }
 
         inline T* data()
         {
-            return (T*) &_data;
+            return (T*) _data;
         }
 
         inline uint8_t* raw()
@@ -77,19 +51,19 @@ template <class T>
 class DBuffer
 {
     public:
-        DBuffer<T>(unsigned length) : _size(length)
+        DBuffer(unsigned length) : _size(length)
         {
             _data = new uint8_t[length];
         }
 
-        ~DBuffer<T>()
+        ~DBuffer()
         {
             delete[] _data;
         }
 
         inline T* data()
         {
-            return (T*) &_data;
+            return (T*) _data;
         }
 
         inline uint8_t* raw()
@@ -119,9 +93,9 @@ class RingBuffer
         void put(uint8_t byte)
         {
             _data[_put] = byte;
+            _put = (_put + 1) % LEN;
             if (_put == _get)
                 _get = (_get + 1) % LEN;
-            _put = (_put + 1) % LEN;
         }
 
         inline bool available()

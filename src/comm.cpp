@@ -1,32 +1,49 @@
 #include "comm.h"
 
-uint32_t checksum32(const uint8_t* data, unsigned len)
+#define FNVOB   0x811c9dc5
+#define FNVP    0x01000193
+
+unsigned hash32(const uint8_t* data, unsigned len)
 {
-    uint32_t sum = 0;
+    union
+    {
+        struct   
+        {
+            uint8_t zero;
+            uint8_t one;
+            uint8_t two;
+            uint8_t three;
+        } bytes;
+        unsigned value = FNVOB;   
+    } hash;
+    
     for (unsigned i = 0; i < len; i++)
-        sum += data[i];
-    return sum;
+    {
+        hash.value *= FNVP;
+        hash.bytes.zero ^= data[i];
+    }
+    return hash.value;
 }
 
-Message::Message() : _msg(NULL), _valid(false)
+Message::Message() : _msg(NULL), _write(0), _dataSize(0), _msgSize(0), _valid(false)
 {
 
 }
 
-Message::Message(uint8_t type, const std::vector<unsigned>& address, const uint8_t* data, uint16_t datalen) : _valid(true)
+Message::Message(uint16_t type, const std::vector<unsigned>& address, const uint8_t* data, unsigned len) : _valid(true)
 {
-    _dataSize = datalen + address.size();
+    _dataSize = len + address.size();
     _msgSize = sizeof(MSG::HEADER) + _dataSize;
     _msg = (msg_t*) new uint8_t[_msgSize];
     _msg->header.data.type = type;
-    _msg->header.data.addrlen = (uint8_t) address.size();
-    _msg->header.data.datalen = datalen;
-    std::memcpy(_msg->data, data, datalen);
-    _write = datalen;
+    _msg->header.data.addrlen = (uint16_t) address.size();
+    _msg->header.data.len = len;
+    std::memcpy(_msg->data, data, len);
+    _write = len;
     for (auto it = address.rbegin(); it != address.rend(); ++it)
         _msg->data[_write++] = (uint8_t) *it;
-    _msg->header.data.datacs = checksum32(_msg->data, _dataSize);
-    _msg->header.cs = checksum32((uint8_t*) &_msg->header.data, sizeof(MSG::HEADER::DATA));
+    _msg->header.data.hash = hash32(_msg->data, _dataSize);
+    _msg->header.hash = hash32((uint8_t*) &_msg->header.data, sizeof(MSG::HEADER::DATA));
 }
 
 void Message::free()
@@ -38,42 +55,57 @@ void Message::free()
     }
 }
 
+#include <iostream>
+
 bool Message::insertData(uint8_t byte)
 {
     if (!_head)
     {
-        if (_msg)
-            return true;
-        _headBuf.insert(byte);
-        if (_headBuf.isFull())
+        _fifo.insert(byte);
+        if (hash32((uint8_t*) &_fifo.data, sizeof(MSG::HEADER::DATA)) == _fifo.hash)
         {
-            uint8_t buf[sizeof(MSG::HEADER)];
-            _headBuf.copy(buf);
-            msg_t* msg = (msg_t*) buf;
-            if (checksum32((uint8_t*) &msg->header.data, sizeof(MSG::HEADER::DATA)) == msg->header.cs)
-            {
-                _dataSize = msg->header.data.datalen + msg->header.data.addrlen;
-                _msgSize = sizeof(MSG::HEADER) + _dataSize;
-                _msg = (msg_t*) new uint8_t[_msgSize];
-                _msg->header = msg->header;
-                _head = true;
-            }
+            _dataSize = _fifo.data.len + (unsigned) _fifo.data.addrlen;
+            _msgSize = sizeof(MSG::HEADER) + _dataSize;
+            _msg = (msg_t*) new uint8_t[_msgSize];
+            _msg->header = _fifo;
+            _write = 0;
+            _head = true;
         }
         return false;
     }
+    else
+    {
+        if (_write >= _dataSize)
+        {
+            if (!isValid())
+            {
+                free();
+                _head = false;
+                return false;
+            }
+            return true;
+        }
+        
+        _msg->data[_write++] = byte;
 
-    if (_write >= _dataSize)
-        return true;
-    
-    _msg->data[_write++] = byte;
-
-    return _write >= _dataSize;
+        if (_write >= _dataSize)
+        {
+            if (!isValid())
+            {
+                free();
+                _head = false;
+                return false;
+            }
+            return true;
+        }
+        return false;   
+    }
 }
 
 bool Message::isValid()
 {
     if (!_valid)
-        _valid = _msg && _write >= _dataSize && checksum32(_msg->data, _dataSize) == _msg->header.data.datacs;
+        _valid = _msg && _write >= _dataSize && hash32(_msg->data, _dataSize) == _msg->header.data.hash;
     return _valid;
 }
 
@@ -82,14 +114,6 @@ int Message::type()
     if (!isValid())
         return -1;
     return _msg->header.data.type;
-}
-
-void Message::copy(Message& msg)
-{
-    msg = *this;
-    msg_t* __msg = (msg_t*) new uint8_t[_msgSize];
-    memcpy(__msg, _msg, _msgSize);
-    _msg = __msg;
 }
 
 int Message::currentAddress()
@@ -110,19 +134,17 @@ void Message::popAddress()
 {
     if (!isValid() || !_msg->header.data.addrlen)
         return;
-    
     _write--;
     _dataSize--;
     _msgSize--;
-    _msg->header.data.addrlen -= 1;
-    _msg->header.data.datacs -= _msg->data[_dataSize];
-    _msg->header.cs = checksum32((uint8_t*) &_msg->header.data, sizeof(MSG::HEADER::DATA));
-    _valid = false;
+    _msg->header.data.addrlen--;
+    _msg->header.data.hash = hash32(_msg->data, _dataSize);
+    _msg->header.hash = hash32((uint8_t*) &_msg->header.data, sizeof(MSG::HEADER::DATA));
 }
 
-msg_t* Message::getMsg()
+uint8_t* Message::getMsg()
 {
-    return _msg;
+    return (uint8_t*) _msg;
 }
 
 uint8_t* Message::getData()
@@ -156,10 +178,9 @@ void MessageBroker::_comm_in(uint8_t byte)
 {
     if (_recvmsg.insertData(byte))
     {
-        if (_recvmsg.isValid())
-            messages.push(_recvmsg);
+        messages.push(_recvmsg);
         _recvmsg = Message();
-    }
+    }  
 }
 
 Message* MessageBroker::_comm_out_peek()
@@ -182,14 +203,9 @@ MessageHub::MessageHub(std::vector<MessageBroker>* brokers, bool isMaster, float
     _broker_data = std::vector<bd_t>(brokers->size());
 
     for (bd_t& bd : _broker_data)
-    {
         bd.heartbeat.setRate(heartbeatRate);
-    }
     
-    if (isMaster)
-        _address = 0;
-    else
-        _address = -1;
+    _address = isMaster ? 0 : -1;
 }
 
 void MessageHub::update()
@@ -213,6 +229,7 @@ void MessageHub::update()
                     _masterPath = std::vector<unsigned>(data->pathSize);
                     for (unsigned i = 0; i < (unsigned) data->pathSize; i++)
                         _masterPath[i] = data->path[i];
+                    _lastMaster = sysMillis();
                 }
                 msg.free();
             }
@@ -254,9 +271,11 @@ void MessageHub::update()
                             case MESSAGES::PING:
                             {
                                 msg_ping_t* ping = (msg_ping_t*) msg.getData();
-                                std::vector<unsigned> ret = std::vector<unsigned>(ping->size);
-                                for (unsigned i = 0; i < ping->size; i++)
-                                    ret[i] = ping->returnAddress[i];
+                                std::vector<unsigned> ret = std::vector<unsigned>(ping->returnPathSize);
+                                for (unsigned i = 0; i < ping->returnPathSize; i++)
+                                    ret[i] = ping->returnPath[i];
+                                if (!ret.back())
+                                    _lastMaster = sysMillis();
                                 msg_reping_t reping;
                                 reping.address = _address;
                                 reping.id = ping->id;
@@ -269,13 +288,12 @@ void MessageHub::update()
 
                             default:
                                 messages.push(msg);
-                        }   
+                        }
                     }
                     else
                     {
                         msg.popAddress();
-                        if (!send(msg))
-                            msg.free();
+                        send(msg);
                     }
                 }
                 else
@@ -294,18 +312,8 @@ void MessageHub::update()
             sendBroker(msg, i);
         }
 
-        if (_address != -1 && _broker_data[i].connectedAddress != -1 && sysMillis() - _broker_data[i].last >= _timeout)
-        {
-            msg_connection_t conn;
-            conn.address0 = _address;
-            conn.address1 = _broker_data[i].connectedAddress;
-            conn.broker0 = i;
-            conn.broker1 = _broker_data[i].broker;
-            conn.isSetup = true;
-            _broker_data[i].connectedAddress = -1;
-            Message smsg = Message(MESSAGES::NODE_DC, _masterPath, (uint8_t*) &conn, sizeof(msg_connection_t));
-            send(smsg);
-        }
+        if (_address != 0 && _address != -1 && sysMillis() - _lastMaster >= _timeout)
+            _address = -1;
     }
 }
 
@@ -324,6 +332,7 @@ bool MessageHub::send(Message& msg)
             return true;
         }
     }
+    msg.free();
     return false;
 }
 
