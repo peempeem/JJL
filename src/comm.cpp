@@ -55,8 +55,6 @@ void Message::free()
     }
 }
 
-#include <iostream>
-
 bool Message::insertData(uint8_t byte)
 {
     if (!_head)
@@ -276,10 +274,11 @@ void MessageHub::update()
                                     ret[i] = ping->returnPath[i];
                                 if (!ret.back())
                                     _lastMaster = sysMillis();
+                                    
                                 msg_reping_t reping;
                                 reping.address = _address;
                                 reping.id = ping->id;
-                                reping.alive = sysMillis();
+                                reping.alive = sysMicros();
                                 Message smsg = Message(MESSAGES::REPING, ret, (uint8_t*) &reping, sizeof(reping));
                                 send(smsg);
                                 msg.free();
@@ -311,10 +310,10 @@ void MessageHub::update()
             Message msg = Message(MESSAGES::HEARTBEAT, std::vector<unsigned>(), (uint8_t*) &data, sizeof(msg_heartbeat_t));
             sendBroker(msg, i);
         }
-
-        if (_address != 0 && _address != -1 && sysMillis() - _lastMaster >= _timeout)
-            _address = -1;
     }
+
+    if (_address != 0 && _address != -1 && sysMillis() - _lastMaster >= _timeout)
+        _address = -1;
 }
 
 bool MessageHub::send(Message& msg)

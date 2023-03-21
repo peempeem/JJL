@@ -8,8 +8,8 @@
 extern UART_HandleTypeDef huart2;
 
 #define NUM_BROKERS     1
-#define RX_BUFSIZE_IT   64
-#define RX_BUFSIZE      512
+#define RX_BUFSIZE_IT   32
+#define RX_BUFSIZE      256
 
 std::vector<MessageBroker> brokers = std::vector<MessageBroker>(NUM_BROKERS);
 MessageHub hub(&brokers);
@@ -80,6 +80,7 @@ void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef* huart, uint16_t size)
 
 void stm32EventLoop()
 {
+    uint32_t beans = sysMicros();
     while (true)
     {
         hub.update();

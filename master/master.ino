@@ -7,16 +7,16 @@
 
 #define RX      26
 #define TX      27
-#define BAUD    576000
-#define PING_TIMEOUT    4000
+#define BAUD    1000000
+#define PING_TIMEOUT    2000
 
 typedef struct PING_DATA
 {
-    Rate ping = Rate(10);
+    Rate ping = Rate(4);
     unsigned last = sysMillis();
     unsigned start = sysMillis();
     int ms = -1;
-    int id = 0;
+    uint8_t id = 0;
 } ping_t;
 
 HardwareSerial port(1);
@@ -24,13 +24,13 @@ std::vector<MessageBroker> brokers = std::vector<MessageBroker>(1);
 MessageHub hub(&brokers, true);
 Graph graph;
 Hash<ping_t> pings;
-Rate update(30);
+Rate update(60);
 
 Rate red(1);
 Rate green(1.5f);
 Rate blue(0.5f);
 
-Rate debug(2);
+Rate debug(1);
 
 void setup()
 {
@@ -166,8 +166,7 @@ void loop()
             Message smsg(MESSAGES::SET_LIGHTS, path, buf.raw(), buf.size());
             hub.send(smsg);
             
-        }
-        //Serial.println(100 * (1 - ESP.getFreeHeap() / 327680.0f));   
+        } 
     }
 
     if (debug.isReady())
@@ -202,6 +201,8 @@ void loop()
             }
             Serial.println("");
         }
+
+        Serial.println(100 * (1 - ESP.getFreeHeap() / 327680.0f)); 
     }
 
     while (brokers[0]._comm_out_peek())

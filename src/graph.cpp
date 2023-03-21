@@ -32,7 +32,7 @@ unsigned Graph::newNode()
     if (_reuse.size())
     {
         address = _reuse.front();
-        _adjList[address] = NODE(address);
+        _adjList[address] = Node(address);
         _reuse.pop();
     }
     else
@@ -71,8 +71,8 @@ void Graph::connect(unsigned n1, unsigned n2, unsigned v1, unsigned v2, unsigned
     if (!_valid(n1) || !_valid(n2) || n1 == n2 || v1 >= MAX_NODE_VERTICES || v2 >= MAX_NODE_VERTICES)
         return;
 
-    node_t& nn1 = _adjList[n1];
-    node_t& nn2 = _adjList[n2];
+    Node& nn1 = _adjList[n1];
+    Node& nn2 = _adjList[n2];
     
     int nn = nn1.connections[v1];
     if (nn != -1)
@@ -95,8 +95,8 @@ void Graph::disconnect(unsigned n1, unsigned n2)
     if (!_valid(n1) || !_valid(n2))
         return;
     
-    node_t& nn1 = _adjList[n1];
-    node_t& nn2 = _adjList[n2];
+    Node& nn1 = _adjList[n1];
+    Node& nn2 = _adjList[n2];
     unsigned n1c = 0;
     unsigned n2c = 0;
 
@@ -136,29 +136,30 @@ float2 Graph::position(unsigned node)
 {
     if (_valid(node))
         return { _adjList[node].x, _adjList[node].y };
+    return { 0, 0 };
 }
 
-typedef struct ASTAR_DATA
+struct AStarData
 {
     unsigned node;
     float f, g;
-    ASTAR_DATA* parent;
+    AStarData* parent;
     
-    ASTAR_DATA()
+    AStarData()
     {
         
     }
 
-    ASTAR_DATA(unsigned node) : node(node), parent(NULL), f(0), g(0)
+    AStarData(unsigned node) : node(node), parent(NULL), f(0), g(0)
     {
         
     }
 
-    ASTAR_DATA(unsigned node, float g, float h) : node(node), parent(NULL), f(h + g), g(g)
+    AStarData(unsigned node, float g, float h) : node(node), parent(NULL), f(h + g), g(g)
     {
         
     }
-} astar_t;
+};
 
 std::vector<unsigned> Graph::path(unsigned start, unsigned end)
 {
@@ -172,21 +173,21 @@ std::vector<unsigned> Graph::path(unsigned start, unsigned end)
         return p;
     }
     
-    std::list<astar_t> aNodes;
-    Hash<astar_t*> open;
-    Hash<astar_t*> closed;
+    std::list<AStarData> aNodes;
+    Hash<AStarData*> open;
+    Hash<AStarData*> closed;
 
     aNodes.emplace_back(start);
     open.insert(start, &aNodes.back());
 
-    node_t& g = _adjList[end];
+    Node& g = _adjList[end];
 
     while (open.size())
     {
         unsigned qn;
-        astar_t* qnn;
+        AStarData* qnn;
         float f = std::numeric_limits<float>::infinity();
-        for (astar_t* node : open)
+        for (AStarData* node : open)
         {
             if (node->f < f)
             {
@@ -196,7 +197,7 @@ std::vector<unsigned> Graph::path(unsigned start, unsigned end)
             }
         }
 
-        node_t& q = _adjList[qn];
+        Node& q = _adjList[qn];
 
         for (unsigned successor = 0; successor < MAX_NODE_VERTICES; successor++)
         {
@@ -204,7 +205,7 @@ std::vector<unsigned> Graph::path(unsigned start, unsigned end)
             if (sucN == end)
             {
                 p.push_back(end);
-                astar_t* parent = qnn;
+                AStarData* parent = qnn;
                 while (parent)
                 {
                     p.push_back(parent->node);
@@ -213,12 +214,12 @@ std::vector<unsigned> Graph::path(unsigned start, unsigned end)
                 std::reverse(p.begin(), p.end());
                 return p;
             }
-            node_t& suc = _adjList[sucN];
+            Node& suc = _adjList[sucN];
             if (!_valid(sucN, true))
                 continue;
-            astar_t sucA = ASTAR_DATA(sucN, qnn->g + q.weights[successor], _distance(suc, g));
+            AStarData sucA(sucN, qnn->g + q.weights[successor], _distance(suc, g));
 
-            astar_t** node = open.at(sucN);
+            AStarData** node = open.at(sucN);
             if (node && (*node)->f < sucA.f)
                 continue;
 
@@ -243,7 +244,7 @@ void Graph::_place(unsigned node)
     if (!_valid(node))
         return;
 
-    node_t& n = _adjList[node];
+    Node& n = _adjList[node];
     if (n.placed)
         return;
     
@@ -252,7 +253,7 @@ void Graph::_place(unsigned node)
         if (!_adjList[n.connections[i]].placed)
             continue;
 
-        node_t& n2 = _adjList[n.connections[i]];
+        Node& n2 = _adjList[n.connections[i]];
 
         unsigned j = 0;
         for (; j < MAX_NODE_VERTICES; j++)
@@ -326,12 +327,12 @@ bool Graph::_valid(unsigned node, bool placed)
     return v;
 }
 
-float Graph::_distance(const node_t& node1, const node_t& node2)
+float Graph::_distance(const Node& node1, const Node& node2)
 {
     return sqrtf(powf(node2.x - node1.x, 2) + powf(node2.y - node1.y, 2));
 }
 
-void Graph::_calcOffset(const node_t& node, unsigned vert, float& x, float& y)
+void Graph::_calcOffset(const Node& node, unsigned vert, float& x, float& y)
 {
     float angle;
     switch (vert)

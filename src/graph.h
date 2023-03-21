@@ -14,30 +14,29 @@ typedef struct FLOAT2
 class Graph
 {
     public:
-        typedef struct NODE
+        struct Node
         {
             bool used, placed;
             float x, y, angle;
             int connections[MAX_NODE_VERTICES];
             unsigned weights[MAX_NODE_VERTICES];
 
-            NODE() : used(false), placed(false)
+            Node() : used(false), placed(false)
             {
 
             }
 
-            NODE(unsigned address) : used(true), placed(false)
+            Node(unsigned address) : used(true), placed(false)
             {
                 for (unsigned i = 0; i < MAX_NODE_VERTICES; i++)
                     connections[i] = -1;
-
             }
-        } node_t;
+        };
 
         class Itterator
         {
             public:
-                Itterator(unsigned idx, std::vector<node_t>* table) : _idx(idx), _table(table)
+                Itterator(unsigned idx, std::vector<Node>* table) : _idx(idx), _table(table)
                 {
 
                 }
@@ -77,7 +76,7 @@ class Graph
             
             private:
                 unsigned _idx;
-                std::vector<node_t>* _table;
+                std::vector<Node>* _table;
         };
 
         Graph();
@@ -95,13 +94,13 @@ class Graph
         std::vector<unsigned> path(unsigned start, unsigned end);
     
     private:
-        std::vector<node_t> _adjList;
+        std::vector<Node> _adjList;
         std::queue<unsigned> _reuse;
         unsigned _numNodes;
 
         void _place(unsigned node);
         bool _valid(unsigned node, bool placed=false);
-        float _distance(const node_t& node1, const node_t& node2);
-        void _calcOffset(const node_t& node, unsigned vert, float& x, float& y);
+        float _distance(const Node& node1, const Node& node2);
+        void _calcOffset(const Node& node, unsigned vert, float& x, float& y);
         int _getNode(unsigned node, unsigned vert);
 };

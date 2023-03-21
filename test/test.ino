@@ -6,7 +6,7 @@
 #define TX0         27
 #define RX1         14
 #define TX1         12
-#define BAUD        576000
+#define BAUD        1000000
 #define PIN_LED     25
 #define NUM_LED     1
 #define NUM_BROKERS 2
@@ -18,7 +18,7 @@ Adafruit_NeoPixel strip(NUM_LED, PIN_LED, NEO_RGB + NEO_KHZ800);
 
 void setup()
 {
-    Serial.begin(BAUD);
+    Serial.begin(115200);
     ports[0].begin(BAUD, SERIAL_8N1, RX0, TX0);
     ports[1].begin(BAUD, SERIAL_8N1, RX1, TX1);
     strip.begin();
@@ -52,6 +52,7 @@ void loop()
                 Serial.print(msl->data[0].b);
                 Serial.println('\t');*/
                 strip.show();
+                //Serial.println(100 * (1 - ESP.getFreeHeap() / 327680.0f));  
                 break;
             }
         }
