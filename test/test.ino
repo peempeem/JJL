@@ -8,12 +8,12 @@
 #define TX1         12
 #define BAUD        1000000
 #define PIN_LED     25
-#define NUM_LED     1
+#define NUM_LED     15
 #define NUM_BROKERS 2
 
 HardwareSerial ports[] = { HardwareSerial(1), HardwareSerial(2) };
-std::vector<MessageBroker> brokers = std::vector<MessageBroker>(NUM_BROKERS);
-MessageHub hub(&brokers);
+std::vector<JJL::MessageBroker> brokers = std::vector<JJL::MessageBroker>(NUM_BROKERS);
+JJL::MessageHub hub(&brokers);
 Adafruit_NeoPixel strip(NUM_LED, PIN_LED, NEO_RGB + NEO_KHZ800);
 
 void setup()
@@ -36,13 +36,13 @@ void loop()
 
     while (hub.messages.size())
     {
-        Message& msg = hub.messages.front();
+        JJL::Message& msg = hub.messages.front();
 
         switch (msg.type())
         {
-            case MESSAGES::SET_LIGHTS:
+            case JJL::MESSAGES::SET_LIGHTS:
             {
-                msg_set_lights_t* msl = (msg_set_lights_t*) msg.getData();
+                JJL::msg_set_lights_t* msl = (JJL::msg_set_lights_t*) msg.getData();
                 for (unsigned i = 0; i < msl->size; i++)
                     strip.setPixelColor(i, msl->data[i].r, msl->data[i].g, msl->data[i].b);
                 /*Serial.print(msl->data[0].r);
@@ -65,7 +65,7 @@ void loop()
     {
         while (brokers[i]._comm_out_peek())
         {
-            Message* msg = brokers[i]._comm_out_peek();
+            JJL::Message* msg = brokers[i]._comm_out_peek();
             ports[i].write((uint8_t*) msg->getMsg(), msg->size());
             brokers[i]._comm_out_pop();
         }

@@ -15,13 +15,13 @@ const unsigned primes[] =
 // HASH NODE
 
 template <class V>
-Hash<V>::Node::Node()
+JJL::Hash<V>::Node::Node()
 {
 
 }
 
 template <class V>
-Hash<V>::Node::Node(unsigned key, const V& value) : key(key), value(value)
+JJL::Hash<V>::Node::Node(unsigned key, const V& value) : key(key), value(value)
 {
 
 }
@@ -29,19 +29,19 @@ Hash<V>::Node::Node(unsigned key, const V& value) : key(key), value(value)
 // HASH ITTERATOR
 
 template <class V>
-Hash<V>::Itterator::Itterator(unsigned idx, std::vector<Node*>* table) : _idx(idx), _table(table) 
+JJL::Hash<V>::Itterator::Itterator(unsigned idx, std::vector<Node*>* table) : _idx(idx), _table(table) 
 {
 
 }
 
 template <class V>
-V& Hash<V>::Itterator::operator*()
+V& JJL::Hash<V>::Itterator::operator*()
 {
     return (*_table)[_idx]->value;
 }
 
 template <class V>
-typename Hash<V>::Itterator& Hash<V>::Itterator::operator++()
+typename JJL::Hash<V>::Itterator& JJL::Hash<V>::Itterator::operator++()
 {
     while (_idx < _table->size())
     {
@@ -53,7 +53,7 @@ typename Hash<V>::Itterator& Hash<V>::Itterator::operator++()
 }
 
 template <class V>
-typename Hash<V>::Itterator Hash<V>::Itterator::operator++(int)
+typename JJL::Hash<V>::Itterator JJL::Hash<V>::Itterator::operator++(int)
 {
     unsigned idx = _idx;
     while (idx < _table->size())
@@ -66,7 +66,7 @@ typename Hash<V>::Itterator Hash<V>::Itterator::operator++(int)
 }
 
 template <class V>
-bool Hash<V>::Itterator::operator!=(const Itterator& other)
+bool JJL::Hash<V>::Itterator::operator!=(const Itterator& other)
 {
     return _idx != other._idx;
 }
@@ -74,7 +74,7 @@ bool Hash<V>::Itterator::operator!=(const Itterator& other)
 // HASH
 
 template <class V>
-Hash<V>::Hash(float load) : _size(0), _prime(3)
+JJL::Hash<V>::Hash(float load) : _size(0), _prime(1)
 {
     _load = (load < 0.5f || load > 1) ? 0.7f : load;
     _table = new std::vector<Node*>(primes[_prime], NULL);
@@ -84,7 +84,7 @@ Hash<V>::Hash(float load) : _size(0), _prime(3)
 }
 
 template <class V>
-Hash<V>::~Hash()
+JJL::Hash<V>::~Hash()
 {
     for (unsigned i = 0; i < _table->size(); i++)
     {
@@ -96,7 +96,7 @@ Hash<V>::~Hash()
 }
 
 template <class V>
-V& Hash<V>::insert(unsigned key, const V& value)
+V& JJL::Hash<V>::insert(unsigned key, const V& value)
 {
     unsigned idx = _contains(key);
     if (idx != (unsigned) -1)
@@ -109,7 +109,7 @@ V& Hash<V>::insert(unsigned key, const V& value)
 }
 
 template <class V>
-void Hash<V>::remove(unsigned key)
+void JJL::Hash<V>::remove(unsigned key)
 {
     unsigned idx = _contains(key);
     if (idx != (unsigned) -1)
@@ -121,7 +121,7 @@ void Hash<V>::remove(unsigned key)
 }
 
 template <class V>
-V& Hash<V>::operator[](unsigned key)
+V& JJL::Hash<V>::operator[](unsigned key)
 {
     unsigned idx = _contains(key);
     if (idx != (unsigned) -1)
@@ -130,7 +130,7 @@ V& Hash<V>::operator[](unsigned key)
 }
 
 template <class V>
-V* Hash<V>::at(unsigned key)
+V* JJL::Hash<V>::at(unsigned key)
 {
     unsigned idx = _contains(key);
     if (idx != (unsigned) -1)
@@ -139,19 +139,19 @@ V* Hash<V>::at(unsigned key)
 }
 
 template <class V>
-bool Hash<V>::contains(unsigned key)
+bool JJL::Hash<V>::contains(unsigned key)
 {
     return _contains(key) != (unsigned) -1;
 }
 
 template <class V>
-unsigned Hash<V>::size()
+unsigned JJL::Hash<V>::size()
 {
     return _size;
 }
 
 template <class V>
-typename Hash<V>::Itterator Hash<V>::begin()
+typename JJL::Hash<V>::Itterator JJL::Hash<V>::begin()
 {
     for (unsigned i = 0; i < _table->size(); i++)
     {
@@ -162,19 +162,19 @@ typename Hash<V>::Itterator Hash<V>::begin()
 }
 
 template <class V>
-typename Hash<V>::Itterator Hash<V>::end()
+typename JJL::Hash<V>::Itterator JJL::Hash<V>::end()
 {
     return Itterator(_table->size(), _table);
 }
 
 template <class V>
-V& Hash<V>::_insert(unsigned key, const V& value)
+V& JJL::Hash<V>::_insert(unsigned key, const V& value)
 {
     if (_size + 1 > _table->size() * _load)
         _resize();
     
-    unsigned h2 = _hash2(key);
     unsigned start = _hash1(key);
+    unsigned h2 = _hash2(key);
     unsigned idx = start;
     do
     {
@@ -194,9 +194,9 @@ V& Hash<V>::_insert(unsigned key, const V& value)
 }
 
 template <class V>
-void Hash<V>::_resize()
+void JJL::Hash<V>::_resize()
 {
-    /*_prime++;
+    _prime++;
     std::vector<Node*>* table = new std::vector<Node*>(primes[_prime], NULL);
     bool* probe = new bool[primes[_prime]];
     for (unsigned i = 0; i < primes[_prime]; i++)
@@ -205,8 +205,8 @@ void Hash<V>::_resize()
     {
         if (node)
         {
-            unsigned h2 = _hash2(node->key);
             unsigned start = _hash1(node->key);
+            unsigned h2 = _hash2(node->key);
             unsigned idx = start;
             do
             {
@@ -225,14 +225,14 @@ void Hash<V>::_resize()
     delete _table;
     delete[] _probe;
     _table = table;
-    _probe = probe;*/
+    _probe = probe;
 }
 
 template <class V>
-unsigned Hash<V>::_contains(unsigned key)
+unsigned JJL::Hash<V>::_contains(unsigned key)
 {
-    unsigned h2 = _hash2(key);
     unsigned start = _hash1(key);
+    unsigned h2 = _hash2(key);
     unsigned idx = start;
     do
     {   
@@ -247,13 +247,13 @@ unsigned Hash<V>::_contains(unsigned key)
 }
 
 template <class V>
-unsigned Hash<V>::_hash1(unsigned key)
+unsigned JJL::Hash<V>::_hash1(unsigned key)
 {
     return key % primes[_prime];
 }
 
 template <class V>
-unsigned Hash<V>::_hash2(unsigned key)
+unsigned JJL::Hash<V>::_hash2(unsigned key)
 {
     return primes[_prime - 1] - (key % primes[_prime - 1]);
 }

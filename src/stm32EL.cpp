@@ -2,23 +2,30 @@
 #include "comm.h"
 #include "time.h"
 #include "buffer.h"
+#include "neopixels.h"
 
 #ifndef ESP32
 
+extern TIM_HandleTypeDef htim2;
+
+extern UART_HandleTypeDef huart1;
 extern UART_HandleTypeDef huart2;
+extern UART_HandleTypeDef huart3;
 
 #define NUM_BROKERS     1
 #define RX_BUFSIZE_IT   32
 #define RX_BUFSIZE      256
+#define NUM_PIXELS      15
 
-std::vector<MessageBroker> brokers = std::vector<MessageBroker>(NUM_BROKERS);
-MessageHub hub(&brokers);
+std::vector<JJL::MessageBroker> brokers = std::vector<JJL::MessageBroker>(NUM_BROKERS);
+JJL::MessageHub hub(&brokers);
+JJL::NeoPixels pixels(&htim2, TIM_CHANNEL_1, 80, NUM_PIXELS);
 
 typedef struct UART_DATA
 {
     volatile bool sending = false;
     uint8_t rxbuf[RX_BUFSIZE_IT];
-    RingBuffer<RX_BUFSIZE> data;
+    JJL::RingBuffer<RX_BUFSIZE> data;
 } uartd_t;
 
 uartd_t broker_data[NUM_BROKERS];
@@ -45,7 +52,7 @@ void sendNext(unsigned broker)
 {
     if (!broker_data[broker].sending)
     {
-        Message* msg = brokers[broker]._comm_out_peek();
+        JJL::Message* msg = brokers[broker]._comm_out_peek();
         if (msg)
             broker_data[broker].sending = HAL_UART_Transmit_IT(broker2UART(broker), (uint8_t*) msg->getMsg(), msg->size()) == HAL_OK;
     }
@@ -78,44 +85,50 @@ void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef* huart, uint16_t size)
     }
 }
 
-void stm32EventLoop()
+void HAL_TIM_PWM_PulseFinishedCallback(TIM_HandleTypeDef *htim)
 {
-    uint32_t beans = sysMicros();
-    while (true)
+  HAL_TIM_PWM_Stop_DMA(htim, TIM_CHANNEL_1);
+}
+
+void JJL::stm32EventLoop()
+{
+    pixels.set(0, 255, 0, 0);
+    pixels.set(1, 0, 255, 0);
+    pixels.set(2, 0, 0, 255);
+    pixels.send();
+    
+    /*hub.update();
+
+    while (hub.messages.size())
     {
-        hub.update();
+        JJL::Message& msg = hub.messages.front();
 
-        while (hub.messages.size())
+        switch (msg.type())
         {
-            Message& msg = hub.messages.front();
-
-            switch (msg.type())
+            case JJL::MESSAGES::SET_LIGHTS:
             {
-                case MESSAGES::SET_LIGHTS:
+                JJL::msg_set_lights_t* msl = (JJL::msg_set_lights_t*) msg.getData();
+                for (unsigned i = 0; i < msl->size; i++)
                 {
-                    msg_set_lights_t* msl = (msg_set_lights_t*) msg.getData();
-                    for (unsigned i = 0; i < msl->size; i++)
-                    {
-                        // set lights
-                        
+                    // set lights
+                    
 
-                    }
-                    break;
                 }
+                break;
             }
+        }
 
-            msg.free();
-            hub.messages.pop();
-        }
-        
-        for (unsigned i = 0; i < NUM_BROKERS; i++)
-        {
-            sendNext(i);
-            recvNext(i);
-            while (broker_data[i].data.available())
-                brokers[i]._comm_in(broker_data[i].data.get());
-        }
+        msg.free();
+        hub.messages.pop();
     }
+    
+    for (unsigned i = 0; i < NUM_BROKERS; i++)
+    {
+        sendNext(i);
+        recvNext(i);
+        while (broker_data[i].data.available())
+            brokers[i]._comm_in(broker_data[i].data.get());
+    }*/
 }
 
 #endif

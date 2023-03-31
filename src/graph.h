@@ -4,103 +4,68 @@
 #include <list>
 #include <queue>
 
-#define MAX_NODE_VERTICES 3
-
-typedef struct FLOAT2
+namespace JJL
 {
-    float x, y;
-} float2;
+    #define MAX_NODE_VERTICES 3
 
-class Graph
-{
-    public:
-        struct Node
-        {
-            bool used, placed;
-            float x, y, angle;
-            int connections[MAX_NODE_VERTICES];
-            unsigned weights[MAX_NODE_VERTICES];
+    typedef struct FLOAT2
+    {
+        float x, y;
+    } float2;
 
-            Node() : used(false), placed(false)
+    class Graph
+    {
+        public:
+            struct Node
             {
+                bool used, placed;
+                float x, y, angle;
+                int connections[MAX_NODE_VERTICES];
+                unsigned weights[MAX_NODE_VERTICES];
 
-            }
+                Node();
+                Node(unsigned address);
+            };
 
-            Node(unsigned address) : used(true), placed(false)
+            class Itterator
             {
-                for (unsigned i = 0; i < MAX_NODE_VERTICES; i++)
-                    connections[i] = -1;
-            }
-        };
+                public:
+                    Itterator(unsigned idx, std::vector<Node>* table);
 
-        class Itterator
-        {
-            public:
-                Itterator(unsigned idx, std::vector<Node>* table) : _idx(idx), _table(table)
-                {
+                    unsigned operator*();
+                    Itterator& operator++();
+                    Itterator operator++(int);
+                    bool operator!=(const Itterator& other);
+                
+                private:
+                    unsigned _idx;
+                    std::vector<Node>* _table;
+            };
 
-                }
+            Graph();
 
-                unsigned operator*()
-                {
-                    return _idx;
-                }
+            Itterator begin();
+            Itterator end();
 
-                Itterator& operator++()
-                {
-                    while (_idx < _table->size())
-                    {
-                        _idx++;
-                        if ((*_table)[_idx].used)
-                            break;
-                    }
-                    return *this;
-                }
+            unsigned newNode();
+            void removeNode(unsigned node);
+            void connect(unsigned n1, unsigned n2, unsigned v1, unsigned v2, unsigned w1=1, unsigned w2=1);
+            void disconnect(unsigned n1, unsigned n2);
+            int getNode(unsigned node, unsigned vert);
+            unsigned numNodes();
+            float2 position(unsigned node);
+            std::vector<unsigned> path(unsigned start, unsigned end);
+        
+        private:
+            std::vector<Node> _adjList;
+            std::queue<unsigned> _reuse;
+            unsigned _numNodes;
 
-                Itterator operator++(int)
-                {
-                    unsigned idx = _idx;
-                    while (idx < _table->size())
-                    {
-                        idx++;
-                        if ((*_table)[idx].used)
-                            break;
-                    }
-                    return Itterator(idx, _table);
-                }
+            void _place(unsigned node);
+            bool _valid(unsigned node, bool placed=false);
+            float _distance(const Node& node1, const Node& node2);
+            void _calcOffset(const Node& node, unsigned vert, float& x, float& y);
+            int _getNode(unsigned node, unsigned vert);
+    };
 
-                bool operator!=(const Itterator& other)
-                {
-                    return _idx != other._idx;
-                }
-            
-            private:
-                unsigned _idx;
-                std::vector<Node>* _table;
-        };
-
-        Graph();
-
-        Itterator begin();
-        Itterator end();
-
-        unsigned newNode();
-        void removeNode(unsigned node);
-        void connect(unsigned n1, unsigned n2, unsigned v1, unsigned v2, unsigned w1=1, unsigned w2=1);
-        void disconnect(unsigned n1, unsigned n2);
-        int getNode(unsigned node, unsigned vert);
-        unsigned numNodes();
-        float2 position(unsigned node);
-        std::vector<unsigned> path(unsigned start, unsigned end);
-    
-    private:
-        std::vector<Node> _adjList;
-        std::queue<unsigned> _reuse;
-        unsigned _numNodes;
-
-        void _place(unsigned node);
-        bool _valid(unsigned node, bool placed=false);
-        float _distance(const Node& node1, const Node& node2);
-        void _calcOffset(const Node& node, unsigned vert, float& x, float& y);
-        int _getNode(unsigned node, unsigned vert);
-};
+}

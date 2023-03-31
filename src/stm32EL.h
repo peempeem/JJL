@@ -2,4 +2,7 @@
 
 #include "hal.h"
 
-void stm32EventLoop();
+namespace JJL
+{
+    void stm32EventLoop();
+}

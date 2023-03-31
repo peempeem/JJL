@@ -5,12 +5,61 @@
 #include <algorithm>
 #include "hash.h"
 
-Graph::Graph()
+JJL::Graph::Node::Node() : used(false), placed(false)
 {
 
 }
 
-Graph::Itterator Graph::begin()
+JJL::Graph::Node::Node(unsigned address) : used(true), placed(false)
+{
+    for (unsigned i = 0; i < MAX_NODE_VERTICES; i++)
+        connections[i] = -1;
+}
+
+JJL::Graph::Itterator::Itterator(unsigned idx, std::vector<Node>* table) : _idx(idx), _table(table)
+{
+
+}
+
+unsigned JJL::Graph::Itterator::operator*()
+{
+    return _idx;
+}
+
+JJL::Graph::Itterator& JJL::Graph::Itterator::operator++()
+{
+    while (_idx < _table->size())
+    {
+        _idx++;
+        if ((*_table)[_idx].used)
+            break;
+    }
+    return *this;
+}
+
+JJL::Graph::Itterator JJL::Graph::Itterator::operator++(int)
+{
+    unsigned idx = _idx;
+    while (idx < _table->size())
+    {
+        idx++;
+        if ((*_table)[idx].used)
+            break;
+    }
+    return Itterator(idx, _table);
+}
+
+bool JJL::Graph::Itterator::operator!=(const Itterator& other)
+{
+    return _idx != other._idx;
+}
+
+JJL::Graph::Graph()
+{
+
+}
+
+JJL::Graph::Itterator JJL::Graph::begin()
 {
     unsigned i = 0;
     for (; i < _adjList.size(); i++)
@@ -21,12 +70,12 @@ Graph::Itterator Graph::begin()
     return Itterator(i, &_adjList);
 }
 
-Graph::Itterator Graph::end()
+JJL::Graph::Itterator JJL::Graph::end()
 {
     return Itterator(_adjList.size(), &_adjList);
 }
 
-unsigned Graph::newNode()
+unsigned JJL::Graph::newNode()
 {
     unsigned address;
     if (_reuse.size())
@@ -51,7 +100,7 @@ unsigned Graph::newNode()
     return address;  
 }
 
-void Graph::removeNode(unsigned node)
+void JJL::Graph::removeNode(unsigned node)
 {
     if (node >= _adjList.size())
         return;
@@ -66,7 +115,7 @@ void Graph::removeNode(unsigned node)
     _numNodes--;
 }
 
-void Graph::connect(unsigned n1, unsigned n2, unsigned v1, unsigned v2, unsigned w1, unsigned w2)
+void JJL::Graph::connect(unsigned n1, unsigned n2, unsigned v1, unsigned v2, unsigned w1, unsigned w2)
 {
     if (!_valid(n1) || !_valid(n2) || n1 == n2 || v1 >= MAX_NODE_VERTICES || v2 >= MAX_NODE_VERTICES)
         return;
@@ -90,7 +139,7 @@ void Graph::connect(unsigned n1, unsigned n2, unsigned v1, unsigned v2, unsigned
     _place(n2);
 }
 
-void Graph::disconnect(unsigned n1, unsigned n2)
+void JJL::Graph::disconnect(unsigned n1, unsigned n2)
 {
     if (!_valid(n1) || !_valid(n2))
         return;
@@ -118,7 +167,7 @@ void Graph::disconnect(unsigned n1, unsigned n2)
         nn2.placed = false;
 }
 
-int Graph::getNode(unsigned node, unsigned vert)
+int JJL::Graph::getNode(unsigned node, unsigned vert)
 {
     if (!_valid(node) || vert >= MAX_NODE_VERTICES)
         return -1;
@@ -127,12 +176,12 @@ int Graph::getNode(unsigned node, unsigned vert)
     return _adjList[node].connections[vert];
 }
 
-unsigned Graph::numNodes()
+unsigned JJL::Graph::numNodes()
 {
     return _numNodes;
 }
 
-float2 Graph::position(unsigned node)
+JJL::float2 JJL::Graph::position(unsigned node)
 {
     if (_valid(node))
         return { _adjList[node].x, _adjList[node].y };
@@ -161,7 +210,7 @@ struct AStarData
     }
 };
 
-std::vector<unsigned> Graph::path(unsigned start, unsigned end)
+std::vector<unsigned> JJL::Graph::path(unsigned start, unsigned end)
 {
     std::vector<unsigned> p;
     if (!_valid(start, true) || !_valid(end, true))
@@ -239,7 +288,7 @@ std::vector<unsigned> Graph::path(unsigned start, unsigned end)
     return p;
 }
 
-void Graph::_place(unsigned node)
+void JJL::Graph::_place(unsigned node)
 {
     if (!_valid(node))
         return;
@@ -319,7 +368,7 @@ void Graph::_place(unsigned node)
         _place(n.connections[i]);
 }
 
-bool Graph::_valid(unsigned node, bool placed)
+bool JJL::Graph::_valid(unsigned node, bool placed)
 {
     bool v = node <= _adjList.size() && _adjList[node].used;
     if (placed)
@@ -327,12 +376,12 @@ bool Graph::_valid(unsigned node, bool placed)
     return v;
 }
 
-float Graph::_distance(const Node& node1, const Node& node2)
+float JJL::Graph::_distance(const Node& node1, const Node& node2)
 {
     return sqrtf(powf(node2.x - node1.x, 2) + powf(node2.y - node1.y, 2));
 }
 
-void Graph::_calcOffset(const Node& node, unsigned vert, float& x, float& y)
+void JJL::Graph::_calcOffset(const Node& node, unsigned vert, float& x, float& y)
 {
     float angle;
     switch (vert)
@@ -358,7 +407,7 @@ void Graph::_calcOffset(const Node& node, unsigned vert, float& x, float& y)
     y = node.y + 2 * sinf(M_PI * angle / 180.0f);
 }
 
-int Graph::_getNode(unsigned node, unsigned vert)
+int JJL::Graph::_getNode(unsigned node, unsigned vert)
 {
     for (unsigned i = 0; i < _adjList.size(); i++)
     {

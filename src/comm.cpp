@@ -3,7 +3,7 @@
 #define FNVOB   0x811c9dc5
 #define FNVP    0x01000193
 
-unsigned hash32(const uint8_t* data, unsigned len)
+unsigned JJL::hash32(const uint8_t* data, unsigned len)
 {
     union
     {
@@ -25,12 +25,12 @@ unsigned hash32(const uint8_t* data, unsigned len)
     return hash.value;
 }
 
-Message::Message() : _msg(NULL), _write(0), _dataSize(0), _msgSize(0), _valid(false)
+JJL::Message::Message() : _msg(NULL), _write(0), _dataSize(0), _msgSize(0), _valid(false)
 {
 
 }
 
-Message::Message(uint16_t type, const std::vector<unsigned>& address, const uint8_t* data, unsigned len) : _valid(true)
+JJL::Message::Message(uint16_t type, const std::vector<unsigned>& address, const uint8_t* data, unsigned len) : _valid(true)
 {
     _dataSize = len + address.size();
     _msgSize = sizeof(MSG::HEADER) + _dataSize;
@@ -46,7 +46,7 @@ Message::Message(uint16_t type, const std::vector<unsigned>& address, const uint
     _msg->header.hash = hash32((uint8_t*) &_msg->header.data, sizeof(MSG::HEADER::DATA));
 }
 
-void Message::free()
+void JJL::Message::free()
 {
     if (_msg)
     {
@@ -55,7 +55,7 @@ void Message::free()
     }
 }
 
-bool Message::insertData(uint8_t byte)
+bool JJL::Message::insertData(uint8_t byte)
 {
     if (!_head)
     {
@@ -100,35 +100,35 @@ bool Message::insertData(uint8_t byte)
     }
 }
 
-bool Message::isValid()
+bool JJL::Message::isValid()
 {
     if (!_valid)
         _valid = _msg && _write >= _dataSize && hash32(_msg->data, _dataSize) == _msg->header.data.hash;
     return _valid;
 }
 
-int Message::type()
+int JJL::Message::type()
 {
     if (!isValid())
         return -1;
     return _msg->header.data.type;
 }
 
-int Message::currentAddress()
+int JJL::Message::currentAddress()
 {
     if (!isValid() || !_msg->header.data.addrlen)
         return -1;
     return _msg->data[_dataSize - 1];
 }
 
-int Message::addressLength()
+int JJL::Message::addressLength()
 {
     if (!isValid())
         return -1;
     return _msg->header.data.addrlen;
 }
 
-void Message::popAddress()
+void JJL::Message::popAddress()
 {
     if (!isValid() || !_msg->header.data.addrlen)
         return;
@@ -140,39 +140,39 @@ void Message::popAddress()
     _msg->header.hash = hash32((uint8_t*) &_msg->header.data, sizeof(MSG::HEADER::DATA));
 }
 
-uint8_t* Message::getMsg()
+uint8_t* JJL::Message::getMsg()
 {
     return (uint8_t*) _msg;
 }
 
-uint8_t* Message::getData()
+uint8_t* JJL::Message::getData()
 {
     if (_msg)
         return _msg->data;
     return NULL;
 }
 
-unsigned Message::size()
+unsigned JJL::Message::size()
 {
     return _msgSize;
 }
 
-unsigned Message::dataSize()
+unsigned JJL::Message::dataSize()
 {
     return _dataSize;
 }
 
-MessageBroker::MessageBroker()
+JJL::MessageBroker::MessageBroker()
 {
 
 }
 
-void MessageBroker::send(const Message& msg)
+void JJL::MessageBroker::send(const Message& msg)
 {
     _sendq.emplace(msg);
 }
 
-void MessageBroker::_comm_in(uint8_t byte)
+void JJL::MessageBroker::_comm_in(uint8_t byte)
 {
     if (_recvmsg.insertData(byte))
     {
@@ -181,14 +181,14 @@ void MessageBroker::_comm_in(uint8_t byte)
     }  
 }
 
-Message* MessageBroker::_comm_out_peek()
+JJL::Message* JJL::MessageBroker::_comm_out_peek()
 {
     if (_sendq.size())
         return &_sendq.front();
     return NULL;
 }
 
-void MessageBroker::_comm_out_pop()
+void JJL::MessageBroker::_comm_out_pop()
 {
     if (!_sendq.size())
         return;
@@ -196,7 +196,7 @@ void MessageBroker::_comm_out_pop()
     _sendq.pop();
 }
 
-MessageHub::MessageHub(std::vector<MessageBroker>* brokers, bool isMaster, float heartbeatRate, unsigned timeout) : _brokers(brokers), _isMaster(isMaster), _timeout(timeout)
+JJL::MessageHub::MessageHub(std::vector<MessageBroker>* brokers, bool isMaster, float heartbeatRate, unsigned timeout) : _brokers(brokers), _isMaster(isMaster), _timeout(timeout)
 {
     _broker_data = std::vector<bd_t>(brokers->size());
 
@@ -206,7 +206,7 @@ MessageHub::MessageHub(std::vector<MessageBroker>* brokers, bool isMaster, float
     _address = isMaster ? 0 : -1;
 }
 
-void MessageHub::update()
+void JJL::MessageHub::update()
 {
     for (unsigned i = 0; i < _brokers->size(); i++)
     {
@@ -316,7 +316,7 @@ void MessageHub::update()
         _address = -1;
 }
 
-bool MessageHub::send(Message& msg)
+bool JJL::MessageHub::send(Message& msg)
 {
     if (msg.currentAddress() == -1)
     {
@@ -335,7 +335,7 @@ bool MessageHub::send(Message& msg)
     return false;
 }
 
-void MessageHub::sendBroker(Message& msg, unsigned broker)
+void JJL::MessageHub::sendBroker(Message& msg, unsigned broker)
 {
     if (broker >= _brokers->size())
     {

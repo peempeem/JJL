@@ -1,41 +1,40 @@
-#include <Arduino.h>
 #include "comm.h"
 #include "graph.h"
 #include "time.h"
 #include "buffer.h"
 #include "hash.h"
+#include "config.h"
 
 #define RX      26
 #define TX      27
-#define BAUD    1000000
 #define PING_TIMEOUT    2000
 
 typedef struct PING_DATA
 {
-    Rate ping = Rate(4);
-    unsigned last = sysMillis();
-    unsigned start = sysMillis();
+    JJL::Rate ping = JJL::Rate(4);
+    unsigned last = JJL::sysMillis();
+    unsigned start = JJL::sysMillis();
     int ms = -1;
     uint8_t id = 0;
 } ping_t;
 
 HardwareSerial port(1);
-std::vector<MessageBroker> brokers = std::vector<MessageBroker>(1);
-MessageHub hub(&brokers, true);
-Graph graph;
-Hash<ping_t> pings;
-Rate update(60);
+std::vector<JJL::MessageBroker> brokers = std::vector<JJL::MessageBroker>(1);
+JJL::MessageHub hub(&brokers, true);
+JJL::Graph graph;
+JJL::Hash<ping_t> pings;
+JJL::Rate update(100);
 
-Rate red(1);
-Rate green(1.5f);
-Rate blue(0.5f);
+JJL::Rate red(1 / 3.0f);
+JJL::Rate green(1.5f / 3.0f);
+JJL::Rate blue(0.5f / 3.0f);
 
-Rate debug(1);
+JJL::Rate debug(1);
 
 void setup()
 {
     Serial.begin(115200);
-    port.begin(BAUD, SERIAL_8N1, RX, TX);
+    port.begin(JJL::BAUD, SERIAL_8N1, RX, TX);
     graph.newNode();
 }
 
@@ -48,13 +47,13 @@ void loop()
 
     while (hub.messages.size())
     {
-        Message& msg = hub.messages.front();
+        JJL::Message& msg = hub.messages.front();
 
         switch (msg.type())
         {
-            case MESSAGES::CONF_NODE:
+            case JJL::MESSAGES::CONF_NODE:
             {
-                msg_connection_t* conn = (msg_connection_t*) msg.getData();
+                JJL::msg_connection_t* conn = (JJL::msg_connection_t*) msg.getData();
 
                 if (!conn->isSetup)
                 {
@@ -78,14 +77,14 @@ void loop()
                 path.erase(--path.end());
                 rpath.erase(rpath.begin());
                 
-                DBuffer<msg_set_master_addr_t> buf(sizeof(msg_set_master_addr_t) + rpath.size());
+                JJL::DBuffer<JJL::msg_set_master_addr_t> buf(sizeof(JJL::msg_set_master_addr_t) + rpath.size());
                 buf.data()->broker = conn->broker0;
                 buf.data()->address = conn->address1;
                 buf.data()->pathSize = rpath.size();
                 for (unsigned i = 0; i < rpath.size(); i++)
                     buf.data()->path[i] = rpath[i];
                 
-                Message smsg(MESSAGES::SET_MASTER_ADDR, path, buf.raw(), buf.size());
+                JJL::Message smsg(JJL::MESSAGES::SET_MASTER_ADDR, path, buf.raw(), buf.size());
                 if (conn->address0 == 0)
                     hub.sendBroker(smsg, conn->broker0);
                 else
@@ -93,16 +92,16 @@ void loop()
                 break;
             }
 
-            case MESSAGES::REPING:
+            case JJL::MESSAGES::REPING:
             {
-                msg_reping_t* reping = (msg_reping_t*) msg.getData();
+                JJL::msg_reping_t* reping = (JJL::msg_reping_t*) msg.getData();
                 ping_t* ping = pings.at(reping->address);
                 if (ping)
                 {
                     if (ping->id != reping->id)
                         break;
-                    ping->ms = sysMillis() - ping->start;
-                    ping->last = sysMillis();
+                    ping->ms = JJL::sysMillis() - ping->start;
+                    ping->last = JJL::sysMillis();
                     ping->id++;
                 }
                 break;
@@ -122,7 +121,7 @@ void loop()
         
         if (ping.ping.isReady())
         {
-            ping.start = sysMillis();
+            ping.start = JJL::sysMillis();
             
             std::vector<unsigned> path = graph.path(0, node);
             if (!path.size())
@@ -133,16 +132,16 @@ void loop()
             path.erase(path.begin());
             rpath.erase(rpath.begin());
 
-            DBuffer<msg_ping_t> msg(sizeof(msg_ping_t) + rpath.size());
+            JJL::DBuffer<JJL::msg_ping_t> msg(sizeof(JJL::msg_ping_t) + rpath.size());
             msg.data()->id = ping.id;
             msg.data()->returnPathSize = rpath.size();
             for (unsigned i = 0; i < rpath.size(); i++)
                 msg.data()->returnPath[i] = rpath[i];
             
-            Message smsg(MESSAGES::PING, path, msg.raw(), msg.size());
+            JJL::Message smsg(JJL::MESSAGES::PING, path, msg.raw(), msg.size());
             hub.send(smsg);
         }
-        if (sysMillis() - ping.last > PING_TIMEOUT)
+        if (JJL::sysMillis() - ping.last > PING_TIMEOUT)
         {
             graph.removeNode(node);
             pings.remove(node);
@@ -157,15 +156,20 @@ void loop()
         {
             path.erase(path.begin());
 
-            SBuffer<msg_set_lights_t, sizeof(msg_set_lights_t) + sizeof(msg_set_lights_t::rgb_t) * 1> buf;
-            buf.data()->size = 1;
-            buf.data()->data[0].r = (uint8_t) (red.getStageCos() * 255) % 256;
-            buf.data()->data[0].g = (uint8_t) (green.getStageCos() * 255) % 256;
-            buf.data()->data[0].b = (uint8_t) (blue.getStageCos() * 255) % 256;
+            JJL::SBuffer<JJL::msg_set_lights_t, sizeof(JJL::msg_set_lights_t) + sizeof(JJL::msg_set_lights_t::rgb_t) * 15> buf;
+            buf.data()->size = 15;
+            for (unsigned i = 0; i < 15; i++)
+            {
+                /*buf.data()->data[i].r = (uint8_t) (i * 10);
+                buf.data()->data[i].g = (uint8_t) (i * 10);
+                buf.data()->data[i].b = (uint8_t) (i * 10);*/
+                buf.data()->data[i].r = (uint8_t) (red.getStageCos(i * 0.03f) * 255);
+                buf.data()->data[i].g = (uint8_t) (green.getStageCos(i * 0.03f) * 255);
+                buf.data()->data[i].b = (uint8_t) (blue.getStageCos(i * 0.03f) * 255);
+            }
             
-            Message smsg(MESSAGES::SET_LIGHTS, path, buf.raw(), buf.size());
-            hub.send(smsg);
-            
+            JJL::Message smsg(JJL::MESSAGES::SET_LIGHTS, path, buf.raw(), buf.size());
+            hub.send(smsg);  
         } 
     }
 
@@ -185,7 +189,7 @@ void loop()
             Serial.print("Node ");
             Serial.print(node);
             Serial.print(": Position (");
-            float2 pos = graph.position(node);
+            JJL::float2 pos = graph.position(node);
             Serial.print(pos.x);
             Serial.print(", ");
             Serial.print(pos.y);
@@ -207,7 +211,7 @@ void loop()
 
     while (brokers[0]._comm_out_peek())
     {
-        Message* msg = brokers[0]._comm_out_peek();
+        JJL::Message* msg = brokers[0]._comm_out_peek();
         port.write((uint8_t*) msg->getMsg(), msg->size());
         brokers[0]._comm_out_pop();
     }

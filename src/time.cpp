@@ -2,34 +2,34 @@
 #define _USE_MATH_DEFINES
 #include <math.h>
 
-Rate::Rate() : _inverseRate(1000), _enabled(false)
+JJL::Rate::Rate() : _inverseRate(1000), _enabled(false)
 {
 
 }
 
-Rate::Rate(float rate)
-{
-    _inverseRate = 1000 / rate;
-    enable();
-}
-
-void Rate::setRate(float rate)
+JJL::Rate::Rate(float rate)
 {
     _inverseRate = 1000 / rate;
     enable();
 }
 
-void Rate::ring()
+void JJL::Rate::setRate(float rate)
+{
+    _inverseRate = 1000 / rate;
+    enable();
+}
+
+void JJL::Rate::ring()
 {
     _last = 0;
 }
 
-void Rate::set()
+void JJL::Rate::set()
 {
     _last = sysMillis();
 }
 
-bool Rate::isReady()
+bool JJL::Rate::isReady()
 {
     if (!_enabled)
         return false;
@@ -42,24 +42,24 @@ bool Rate::isReady()
     return false;
 }
 
-void Rate::reset()
+void JJL::Rate::reset()
 {
-    _last = sysMillis();
+    _last = JJL::sysMillis();
 }
 
-void Rate::enable()
+void JJL::Rate::enable()
 {
     if (_enabled)
         reset();
     _enabled = true;
 }
 
-void Rate::disable()
+void JJL::Rate::disable()
 {
     _enabled = false;
 }
 
-float Rate::getStage(bool noChange) 
+float JJL::Rate::getStage(bool noChange) 
 {
     if (!_enabled)
         return 0;
@@ -74,8 +74,8 @@ float Rate::getStage(bool noChange)
     return stage;
 }
 
-float Rate::getStageCos(bool noChange)
+float JJL::Rate::getStageCos(float offset, bool noChange)
 {
-    float stage = getStage(noChange);
+    float stage = getStage(noChange) + offset;
     return 0.5f - cos(stage * 2 * M_PI) / 2.0f;
 }
