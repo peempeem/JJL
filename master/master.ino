@@ -23,7 +23,7 @@ std::vector<JJL::MessageBroker> brokers = std::vector<JJL::MessageBroker>(1);
 JJL::MessageHub hub(&brokers, true);
 JJL::Graph graph;
 JJL::Hash<ping_t> pings;
-JJL::Rate update(20);
+JJL::Rate update(30);
 
 JJL::Rate red(1 / 3.0f);
 JJL::Rate green(1.5f / 3.0f);
@@ -34,7 +34,7 @@ JJL::Rate debug(1);
 void setup()
 {
     Serial.begin(115200);
-    port.begin(200000, SERIAL_8N1, RX, TX);
+    port.begin(100000, SERIAL_8N1, RX, TX);
     graph.newNode();
 }
 

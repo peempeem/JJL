@@ -13,7 +13,7 @@ extern UART_HandleTypeDef huart2;
 extern UART_HandleTypeDef huart3;
 
 #define NUM_BROKERS     3
-#define RX_BUFSIZE_IT   8
+#define RX_BUFSIZE_IT   64
 #define RX_BUFSIZE      256
 #define NUM_PIXELS      15
 
