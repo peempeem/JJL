@@ -1,6 +1,4 @@
 #pragma once
 
-namespace JJL
-{
-    #define BAUD    1000000
-}
+#define BAUD    500000
+

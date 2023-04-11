@@ -23,7 +23,7 @@ std::vector<JJL::MessageBroker> brokers = std::vector<JJL::MessageBroker>(1);
 JJL::MessageHub hub(&brokers, true);
 JJL::Graph graph;
 JJL::Hash<ping_t> pings;
-JJL::Rate update(100);
+JJL::Rate update(20);
 
 JJL::Rate red(1 / 3.0f);
 JJL::Rate green(1.5f / 3.0f);
@@ -34,7 +34,7 @@ JJL::Rate debug(1);
 void setup()
 {
     Serial.begin(115200);
-    port.begin(JJL::BAUD, SERIAL_8N1, RX, TX);
+    port.begin(200000, SERIAL_8N1, RX, TX);
     graph.newNode();
 }
 
@@ -160,9 +160,9 @@ void loop()
             buf.data()->size = 15;
             for (unsigned i = 0; i < 15; i++)
             {
-                /*buf.data()->data[i].r = (uint8_t) (i * 10);
-                buf.data()->data[i].g = (uint8_t) (i * 10);
-                buf.data()->data[i].b = (uint8_t) (i * 10);*/
+                /*buf.data()->data[i].r = (uint8_t) (0);
+                buf.data()->data[i].g = (uint8_t) (i * 6);
+                buf.data()->data[i].b = (uint8_t) (0);*/
                 buf.data()->data[i].r = (uint8_t) (red.getStageCos(i * 0.03f) * 255);
                 buf.data()->data[i].g = (uint8_t) (green.getStageCos(i * 0.03f) * 255);
                 buf.data()->data[i].b = (uint8_t) (blue.getStageCos(i * 0.03f) * 255);

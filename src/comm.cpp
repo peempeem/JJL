@@ -73,18 +73,8 @@ bool JJL::Message::insertData(uint8_t byte)
     }
     else
     {
-        if (_write >= _dataSize)
-        {
-            if (!isValid())
-            {
-                free();
-                _head = false;
-                return false;
-            }
-            return true;
-        }
-        
-        _msg->data[_write++] = byte;
+        if (_write < _dataSize)
+            _msg->data[_write++] = byte;
 
         if (_write >= _dataSize)
         {
@@ -176,6 +166,10 @@ void JJL::MessageBroker::_comm_in(uint8_t byte)
 {
     if (_recvmsg.insertData(byte))
     {
+        if (_recvmsg.type() == JJL::MESSAGES::SET_LIGHTS)
+        {
+            int beans = 0;
+        }
         messages.push(_recvmsg);
         _recvmsg = Message();
     }  

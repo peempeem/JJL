@@ -12,8 +12,8 @@ extern UART_HandleTypeDef huart1;
 extern UART_HandleTypeDef huart2;
 extern UART_HandleTypeDef huart3;
 
-#define NUM_BROKERS     1
-#define RX_BUFSIZE_IT   32
+#define NUM_BROKERS     3
+#define RX_BUFSIZE_IT   8
 #define RX_BUFSIZE      256
 #define NUM_PIXELS      15
 
@@ -35,7 +35,11 @@ UART_HandleTypeDef* broker2UART(unsigned broker)
     switch (broker)
     {
         case 0:
+            return &huart3;
+        case 1:
             return &huart2;
+        case 2:
+            return &huart1;
         default:
             return NULL;
     }
@@ -43,8 +47,12 @@ UART_HandleTypeDef* broker2UART(unsigned broker)
 
 int UART2Broker(UART_HandleTypeDef* huart)
 {
-    if (huart == &huart2)
+    if (huart == &huart3)
         return 0;
+    else if (huart == &huart2)
+        return 1;
+    else if (huart == &huart1)
+        return 2;
     return -1;
 }
 
@@ -91,13 +99,8 @@ void HAL_TIM_PWM_PulseFinishedCallback(TIM_HandleTypeDef *htim)
 }
 
 void JJL::stm32EventLoop()
-{
-    pixels.set(0, 255, 0, 0);
-    pixels.set(1, 0, 255, 0);
-    pixels.set(2, 0, 0, 255);
-    pixels.send();
-    
-    /*hub.update();
+{    
+    hub.update();
 
     while (hub.messages.size())
     {
@@ -111,9 +114,11 @@ void JJL::stm32EventLoop()
                 for (unsigned i = 0; i < msl->size; i++)
                 {
                     // set lights
+                    pixels.set(i, msl->data[i].r, msl->data[i].g, msl->data[i].b);
                     
 
                 }
+                pixels.send();
                 break;
             }
         }
@@ -128,7 +133,7 @@ void JJL::stm32EventLoop()
         recvNext(i);
         while (broker_data[i].data.available())
             brokers[i]._comm_in(broker_data[i].data.get());
-    }*/
+    }
 }
 
 #endif

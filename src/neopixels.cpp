@@ -1,5 +1,7 @@
 #include "neopixels.h"
 
+#ifndef ESP32
+
 JJL::NeoPixels::NeoPixels(TIM_HandleTypeDef* timer, unsigned channel, unsigned ARR, unsigned numPixels) : _timer(timer), _channel(channel), _numPixels(numPixels)
 {
     _zero = ARR / 3;
@@ -43,3 +45,5 @@ void JJL::NeoPixels::send()
 
     HAL_TIM_PWM_Start_DMA(_timer, _channel, _dmaBuf, _dmaBufSize);
 }
+
+#endif

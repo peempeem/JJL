@@ -2,6 +2,8 @@
 
 #include "hal.h"
 
+#ifndef ESP32
+
 namespace JJL
 {
     class NeoPixels
@@ -36,3 +38,5 @@ namespace JJL
             uint32_t* _dmaBuf;
     };
 }
+
+#endif
