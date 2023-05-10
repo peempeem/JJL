@@ -37,9 +37,9 @@ UART_HandleTypeDef* broker2UART(unsigned broker)
         case 0:
             return &huart3;
         case 1:
-            return &huart2;
-        case 2:
             return &huart1;
+        case 2:
+            return &huart2;
         default:
             return NULL;
     }
@@ -49,9 +49,9 @@ int UART2Broker(UART_HandleTypeDef* huart)
 {
     if (huart == &huart3)
         return 0;
-    else if (huart == &huart2)
-        return 1;
     else if (huart == &huart1)
+        return 1;
+    else if (huart == &huart2)
         return 2;
     return -1;
 }
@@ -112,12 +112,7 @@ void JJL::stm32EventLoop()
             {
                 JJL::msg_set_lights_t* msl = (JJL::msg_set_lights_t*) msg.getData();
                 for (unsigned i = 0; i < msl->size; i++)
-                {
-                    // set lights
                     pixels.set(i, msl->data[i].r, msl->data[i].g, msl->data[i].b);
-                    
-
-                }
                 pixels.send();
                 break;
             }

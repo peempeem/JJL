@@ -7,11 +7,11 @@
 
 #define RX      26
 #define TX      27
-#define PING_TIMEOUT    2000
+#define PING_TIMEOUT    1000
 
 typedef struct PING_DATA
 {
-    JJL::Rate ping = JJL::Rate(4);
+    JJL::Rate ping = JJL::Rate(5);
     unsigned last = JJL::sysMillis();
     unsigned start = JJL::sysMillis();
     int ms = -1;
@@ -23,27 +23,40 @@ std::vector<JJL::MessageBroker> brokers = std::vector<JJL::MessageBroker>(1);
 JJL::MessageHub hub(&brokers, true);
 JJL::Graph graph;
 JJL::Hash<ping_t> pings;
-JJL::Rate update(30);
+JJL::Rate refresh(30);
 
-JJL::Rate red(1 / 3.0f);
-JJL::Rate green(1.5f / 3.0f);
-JJL::Rate blue(0.5f / 3.0f);
+JJL::Rate red(1.5);
+JJL::Rate green(1);
+JJL::Rate blue(0.5);
 
 JJL::Rate debug(1);
 
 void setup()
 {
     Serial.begin(115200);
+
     port.begin(100000, SERIAL_8N1, RX, TX);
     graph.newNode();
 }
 
-void loop()
+void update()
 {
     while (port.available())
         brokers[0]._comm_in(port.read());
-
+    
     hub.update();
+
+    while (brokers[0]._comm_out_peek())
+    {
+        JJL::Message* msg = brokers[0]._comm_out_peek();
+        port.write((uint8_t*) msg->getMsg(), msg->size());
+        brokers[0]._comm_out_pop();
+    }
+}
+
+void loop()
+{
+    update();
 
     while (hub.messages.size())
     {
@@ -148,29 +161,32 @@ void loop()
         }
     }
 
-    if (update.isReady())
+    if (refresh.isReady())
     {
-        std::vector<unsigned> path = graph.path(0, 1);
-        
-        if (path.size() > 0)
+        for (unsigned node : graph)
         {
-            path.erase(path.begin());
-
-            JJL::SBuffer<JJL::msg_set_lights_t, sizeof(JJL::msg_set_lights_t) + sizeof(JJL::msg_set_lights_t::rgb_t) * 15> buf;
-            buf.data()->size = 15;
-            for (unsigned i = 0; i < 15; i++)
+            if (node == 0)
+                continue;
+            std::vector<unsigned> path = graph.path(0, node);
+            if (path.size() > 0)
             {
-                /*buf.data()->data[i].r = (uint8_t) (0);
-                buf.data()->data[i].g = (uint8_t) (i * 6);
-                buf.data()->data[i].b = (uint8_t) (0);*/
-                buf.data()->data[i].r = (uint8_t) (red.getStageCos(i * 0.03f) * 255);
-                buf.data()->data[i].g = (uint8_t) (green.getStageCos(i * 0.03f) * 255);
-                buf.data()->data[i].b = (uint8_t) (blue.getStageCos(i * 0.03f) * 255);
+                path.erase(path.begin());
+
+                JJL::SBuffer<JJL::msg_set_lights_t, sizeof(JJL::msg_set_lights_t) + sizeof(JJL::msg_set_lights_t::rgb_t) * 15> buf;
+                buf.data()->size = 15;
+                for (unsigned i = 0; i < 15; i++)
+                {
+                    JJL::float2 pixpos = graph.pixelPosition(node, i);
+                    float stage = graph.distance2Triangle(graph.distance(pixpos) / 2);
+                    buf.data()->data[i].r = (uint8_t) (red.getStageCos(stage) * 255);
+                    buf.data()->data[i].g = (uint8_t) (green.getStageCos(stage) * 255);
+                    buf.data()->data[i].b = (uint8_t) (blue.getStageCos(stage) * 255);
+                }
+                
+                JJL::Message smsg(JJL::MESSAGES::SET_LIGHTS, path, buf.raw(), buf.size());
+                hub.send(smsg);  
             }
-            
-            JJL::Message smsg(JJL::MESSAGES::SET_LIGHTS, path, buf.raw(), buf.size());
-            hub.send(smsg);  
-        } 
+        }
     }
 
     if (debug.isReady())
@@ -193,7 +209,9 @@ void loop()
             Serial.print(pos.x);
             Serial.print(", ");
             Serial.print(pos.y);
-            Serial.print(")\t Ping (");
+            Serial.print(")\t Angle: ");
+            Serial.print(graph.angle(node));
+            Serial.print("\t Ping (");
             Serial.print(node ? pings[node].ms : 0);
             Serial.print(" ms) \t Path: ");
             std::vector<unsigned> path = graph.path(0, node);
@@ -206,13 +224,6 @@ void loop()
             Serial.println("");
         }
 
-        Serial.println(100 * (1 - ESP.getFreeHeap() / 327680.0f)); 
-    }
-
-    while (brokers[0]._comm_out_peek())
-    {
-        JJL::Message* msg = brokers[0]._comm_out_peek();
-        port.write((uint8_t*) msg->getMsg(), msg->size());
-        brokers[0]._comm_out_pop();
+        //Serial.println(100 * (1 - ESP.getFreeHeap() / 327680.0f)); 
     }
 }

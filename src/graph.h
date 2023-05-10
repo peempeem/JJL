@@ -19,7 +19,8 @@ namespace JJL
             struct Node
             {
                 bool used, placed;
-                float x, y, angle;
+                float2 pos;
+                float angle;
                 int connections[MAX_NODE_VERTICES];
                 unsigned weights[MAX_NODE_VERTICES];
 
@@ -54,6 +55,11 @@ namespace JJL
             int getNode(unsigned node, unsigned vert);
             unsigned numNodes();
             float2 position(unsigned node);
+            float angle(unsigned node);
+            float distance(const float2& pt);
+            float distance(const float2& p1, const float2& p2);
+            float distance2Triangle(float distance);
+            float2 pixelPosition(unsigned node, unsigned pixel);
             std::vector<unsigned> path(unsigned start, unsigned end);
         
         private:
@@ -63,7 +69,7 @@ namespace JJL
 
             void _place(unsigned node);
             bool _valid(unsigned node, bool placed=false);
-            float _distance(const Node& node1, const Node& node2);
+            float _nodeDistance(const Node& node1, const Node& node2);
             void _calcOffset(const Node& node, unsigned vert, float& x, float& y);
             int _getNode(unsigned node, unsigned vert);
     };

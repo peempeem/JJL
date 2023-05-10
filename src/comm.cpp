@@ -68,6 +68,12 @@ bool JJL::Message::insertData(uint8_t byte)
             _msg->header = _fifo;
             _write = 0;
             _head = true;
+
+            if (_dataSize == 0)
+            {
+                _valid = true;
+                return true;
+            }
         }
         return false;
     }
@@ -301,7 +307,7 @@ void JJL::MessageHub::update()
             data.isSetup = _address != -1;
             data.address = _address;
             data.broker = i;
-            Message msg = Message(MESSAGES::HEARTBEAT, std::vector<unsigned>(), (uint8_t*) &data, sizeof(msg_heartbeat_t));
+            Message msg(MESSAGES::HEARTBEAT, std::vector<unsigned>(), (uint8_t*) &data, sizeof(msg_heartbeat_t));
             sendBroker(msg, i);
         }
     }

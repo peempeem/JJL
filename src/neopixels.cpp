@@ -32,16 +32,10 @@ void JJL::NeoPixels::send()
     unsigned j = 0;
     for (unsigned i = 0; i < _numPixels; i++)
     {
-        for (int bit = 23; bit >= 0; bit--)
-        {
-            if ((_data[i].data >> bit) & 0x01)
-                _dmaBuf[j] = _one;
-            else
-                _dmaBuf[j] = _zero;
-            j++;
-        }
+        for (int bit = 23; bit >= 0; bit--, j++)
+            _dmaBuf[j] = ((_data[i].data >> bit) & 0x01) ? _one : _zero;
     }
-    _dmaBuf[_dmaBufSize - 1] = 0;
+    _dmaBuf[j] = 0;
 
     HAL_TIM_PWM_Start_DMA(_timer, _channel, _dmaBuf, _dmaBufSize);
 }

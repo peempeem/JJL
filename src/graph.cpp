@@ -5,6 +5,30 @@
 #include <algorithm>
 #include "hash.h"
 
+#define PCBX 6.475
+#define PCBY 3.738
+#define TRIANGLE_ANGLE 90.0f
+#define TRIANGLE_RADIUS 8.3f
+
+JJL::float2 pixelsPos[] = 
+{
+    { 6.475 - PCBX, 8.750 - PCBY },
+    { 7.575 - PCBX, 6.875 - PCBY },
+    { 5.392 - PCBX, 6.875 - PCBY },
+    { 4.301 - PCBX, 5.000 - PCBY },
+    { 6.475 - PCBX, 5.000 - PCBY },
+    { 8.640 - PCBX, 5.000 - PCBY },
+    { 9.702 - PCBX, 3.125 - PCBY },
+    { 7.558 - PCBX, 3.125 - PCBY },
+    { 5.392 - PCBX, 3.125 - PCBY },
+    { 3.248 - PCBX, 3.125 - PCBY },
+    { 2.145 - PCBX, 1.250 - PCBY },
+    { 4.301 - PCBX, 1.250 - PCBY },
+    { 6.475 - PCBX, 1.250 - PCBY },
+    { 8.640 - PCBX, 1.250 - PCBY },
+    { 10.81 - PCBX, 1.250 - PCBY }
+};
+
 JJL::Graph::Node::Node() : used(false), placed(false)
 {
 
@@ -90,8 +114,7 @@ unsigned JJL::Graph::newNode()
         _adjList.emplace_back(address);
         if (_adjList.size() == 1)
         {
-            _adjList[0].x = 0;
-            _adjList[0].y = 0;
+            _adjList[0].pos = { 0, 0 };
             _adjList[0].angle = 270.0f;
             _adjList[0].placed = true;
         }
@@ -184,8 +207,39 @@ unsigned JJL::Graph::numNodes()
 JJL::float2 JJL::Graph::position(unsigned node)
 {
     if (_valid(node))
-        return { _adjList[node].x, _adjList[node].y };
-    return { 0, 0 };
+        return _adjList[node].pos;
+    return { -1, -1 };
+}
+
+float JJL::Graph::angle(unsigned node)
+{
+    if (_valid(node))
+        return _adjList[node].angle;
+    return 0;
+}
+
+float JJL::Graph::distance(const JJL::float2& pt)
+{
+    return sqrtf(powf(pt.x, 2) + powf(pt.y, 2));
+}
+
+float JJL::Graph::distance(const JJL::float2& p1, const JJL::float2& p2)
+{
+    return sqrtf(powf(p2.x - p1.x, 2) + powf(p2.y - p1.y, 2));
+}
+
+float JJL::Graph::distance2Triangle(float distance)
+{
+    return distance / TRIANGLE_RADIUS;
+}
+
+JJL::float2 JJL::Graph::pixelPosition(unsigned node, unsigned pixel)
+{
+    if (!_valid(node) && pixel < 15)
+        return { -1, -1 };
+    float c = cosf(M_PI * (_adjList[node].angle - TRIANGLE_ANGLE) / 180.0f);
+    float s = sinf(M_PI * (_adjList[node].angle - TRIANGLE_ANGLE) / 180.0f);
+    return { _adjList[node].pos.x + pixelsPos[pixel].x * c - pixelsPos[pixel].y * s, _adjList[node].pos.y + pixelsPos[pixel].x * s + pixelsPos[pixel].y * c - TRIANGLE_RADIUS };
 }
 
 struct AStarData
@@ -266,7 +320,7 @@ std::vector<unsigned> JJL::Graph::path(unsigned start, unsigned end)
             Node& suc = _adjList[sucN];
             if (!_valid(sucN, true))
                 continue;
-            AStarData sucA(sucN, qnn->g + q.weights[successor], _distance(suc, g));
+            AStarData sucA(sucN, qnn->g + q.weights[successor], _nodeDistance(suc, g));
 
             AStarData** node = open.at(sucN);
             if (node && (*node)->f < sucA.f)
@@ -357,9 +411,28 @@ void JJL::Graph::_place(unsigned node)
                 angle = 0;
         }
 
+        float angle2;
+        switch (j % 3)
+        {
+            case 0:
+                angle2 = 180;
+                break;
+            
+            case 1:
+                angle2 = 60;
+                break;
+            
+            case 2:
+                angle2 = -60;
+                break;
+            
+            default:
+                angle2 = 0;
+        }
+
         n.angle = fmodf(n2.angle + angle, 360.0f);
-        n.x = n2.x + 2 * cosf(M_PI * n.angle / 180.0f);
-        n.y = n2.y + 2 * sinf(M_PI * n.angle / 180.0f);
+        n.pos.x = n2.pos.x + TRIANGLE_RADIUS * cosf(M_PI * (n2.angle + angle2) / 180.0f);
+        n.pos.y = n2.pos.y + TRIANGLE_RADIUS * sinf(M_PI * (n2.angle + angle2) / 180.0f);
         n.placed = true;
         break;
     }
@@ -376,9 +449,9 @@ bool JJL::Graph::_valid(unsigned node, bool placed)
     return v;
 }
 
-float JJL::Graph::_distance(const Node& node1, const Node& node2)
+float JJL::Graph::_nodeDistance(const Node& node1, const Node& node2)
 {
-    return sqrtf(powf(node2.x - node1.x, 2) + powf(node2.y - node1.y, 2));
+    return distance(node1.pos, node2.pos);
 }
 
 void JJL::Graph::_calcOffset(const Node& node, unsigned vert, float& x, float& y)
@@ -403,8 +476,8 @@ void JJL::Graph::_calcOffset(const Node& node, unsigned vert, float& x, float& y
     }
 
     angle += node.angle;
-    x = node.x + 2 * cosf(M_PI * angle / 180.0f);
-    y = node.y + 2 * sinf(M_PI * angle / 180.0f);
+    x = node.pos.x + 2 * cosf(M_PI * angle / 180.0f);
+    y = node.pos.y + 2 * sinf(M_PI * angle / 180.0f);
 }
 
 int JJL::Graph::_getNode(unsigned node, unsigned vert)
@@ -413,7 +486,7 @@ int JJL::Graph::_getNode(unsigned node, unsigned vert)
     {
         if (_valid(i, true) && i != node)
         {
-            if (_distance(_adjList[i], _adjList[node]) < 0.1f)
+            if (_nodeDistance(_adjList[i], _adjList[node]) < 0.1f)
                 return i;
         }
     }
